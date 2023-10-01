@@ -1,0 +1,60 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33402.96
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "tinyRpc", "tinyRpc\tinyRpc.csproj", "{5D3D1FBB-5D98-4F93-AABA-3824A26817E2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Sample", "Sample", "{37E317E6-BBAD-4153-9F60-B966E040D0EE}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleServer", "SampleServer\SampleServer.csproj", "{0F71AD96-8910-4A1A-A716-893F65316EAD}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleClient", "SampleClient\SampleClient.csproj", "{AAD08459-3722-4670-A05C-B459E52161BA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0F71AD96-8910-4A1A-A716-893F65316EAD} = {0F71AD96-8910-4A1A-A716-893F65316EAD}
+	EndProjectSection
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SampleShared", "SampleShared\SampleShared.shproj", "{F9E939E3-5B50-4F2E-9962-62950E14C9F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tinyRpc.Roslyn", "tinyRpc.Roslyn\tinyRpc.Roslyn.csproj", "{3F04E5C4-CAE6-4F7C-80E5-61FAB139E2F2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5D3D1FBB-5D98-4F93-AABA-3824A26817E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5D3D1FBB-5D98-4F93-AABA-3824A26817E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5D3D1FBB-5D98-4F93-AABA-3824A26817E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5D3D1FBB-5D98-4F93-AABA-3824A26817E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F71AD96-8910-4A1A-A716-893F65316EAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F71AD96-8910-4A1A-A716-893F65316EAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F71AD96-8910-4A1A-A716-893F65316EAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F71AD96-8910-4A1A-A716-893F65316EAD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AAD08459-3722-4670-A05C-B459E52161BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AAD08459-3722-4670-A05C-B459E52161BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AAD08459-3722-4670-A05C-B459E52161BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AAD08459-3722-4670-A05C-B459E52161BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F04E5C4-CAE6-4F7C-80E5-61FAB139E2F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F04E5C4-CAE6-4F7C-80E5-61FAB139E2F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F04E5C4-CAE6-4F7C-80E5-61FAB139E2F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F04E5C4-CAE6-4F7C-80E5-61FAB139E2F2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0F71AD96-8910-4A1A-A716-893F65316EAD} = {37E317E6-BBAD-4153-9F60-B966E040D0EE}
+		{AAD08459-3722-4670-A05C-B459E52161BA} = {37E317E6-BBAD-4153-9F60-B966E040D0EE}
+		{F9E939E3-5B50-4F2E-9962-62950E14C9F8} = {37E317E6-BBAD-4153-9F60-B966E040D0EE}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {15CA4B96-3BCA-44DE-BD2D-36C9CDE047D8}
+	EndGlobalSection
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		SampleShared\SampleShared.projitems*{0f71ad96-8910-4a1a-a716-893f65316ead}*SharedItemsImports = 5
+		SampleShared\SampleShared.projitems*{aad08459-3722-4670-a05c-b459e52161ba}*SharedItemsImports = 5
+		SampleShared\SampleShared.projitems*{f9e939e3-5b50-4f2e-9962-62950e14c9f8}*SharedItemsImports = 13
+	EndGlobalSection
+EndGlobal

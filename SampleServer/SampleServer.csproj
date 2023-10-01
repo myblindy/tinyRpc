@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\tinyRpc\tinyRpc.csproj" />
+    <ProjectReference Include="..\tinyRpc.Roslyn\tinyRpc.Roslyn.csproj" Condition="'$(Configuration)' != 'Release'"
+                      PrivateAssets="all"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer"/>
+  </ItemGroup>
+
+  <Import Project="..\SampleShared\SampleShared.projitems" Label="Shared" />
+
+</Project>
