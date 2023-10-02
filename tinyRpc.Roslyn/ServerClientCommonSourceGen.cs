@@ -68,11 +68,26 @@ static class Utils
 
     internal static string ToFullyQualifiedString(this ITypeSymbol type) => type.ToDisplayString(fullyQualifiedSymbolDisplayFormat);
 
-    internal static string GetBinaryReaderFunctionName(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
+    internal static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
     {
-        "global::System.String" => "ReadString",
-        "global::System.Int32" => "ReadInt32",
+        _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
+            p.Type.GetBinaryReaderCall()))})",
+        "global::System.String" => "await reader.ReadStringAsync().ConfigureAwait(false)",
+        "global::System.Int16" => "await reader.ReadInt16Async().ConfigureAwait(false)",
+        "global::System.Int32" => "await reader.ReadInt32Async().ConfigureAwait(false)",
+        "global::System.Byte[]" => "await reader.ReadBytesAsync(await reader.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
         _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.Name}")
+    };
+
+    internal static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
+    {
+        _ when type.IsTupleType =>
+            string.Join("\n", ((INamedTypeSymbol)type).TupleElements.Select(p => p.Type.GetBinaryWriterCall($"{name}.{p.Name}"))),
+        "global::System.Byte[]" => $$"""
+            await writer.WriteAsync({{name}}.Length).ConfigureAwait(false);
+            await writer.WriteAsync({{name}}).ConfigureAwait(false);
+            """,
+        _ => $"await writer.WriteAsync({name}).ConfigureAwait(false);"
     };
 
     internal static bool IsVoid(this ITypeSymbol type) =>

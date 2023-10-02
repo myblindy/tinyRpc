@@ -43,11 +43,11 @@ class ServerSourceGen : IIncrementalGenerator
                                         {
                                             {{(m.ReturnType.IsVoid() ? null : "var result = ")}}
                                             serverHandler.{{m.Name}}({{string.Join(", ", m.Parameters.Select(p =>
-                                                $"await reader.{p.Type.GetBinaryReaderFunctionName()}Async().ConfigureAwait(false)"))}});
+                                                p.Type.GetBinaryReaderCall()))}});
 
                                             {{(m.ReturnType.IsVoid() ? null : $$"""
                                                 // return the result
-                                                await writer.WriteAsync(result).ConfigureAwait(false);
+                                                {{m.ReturnType.GetBinaryWriterCall("result")}}
                                                 await writer.FlushAsync().ConfigureAwait(false);
                                                 """)}}
                                         }

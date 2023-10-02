@@ -38,14 +38,12 @@ class ClientSourceGen : IIncrementalGenerator
                                     using (await monitor.EnterAsync().ConfigureAwait(false))
                                     {
                                         await writer.WriteAsync("{{m.Name}}").ConfigureAwait(false);
-                                        {{string.Join("\n", m.Parameters.Select(p => $$"""
-                                            await writer.WriteAsync({{p.Name}}).ConfigureAwait(false);
-                                            """))}}
+                                        {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
                                         await writer.FlushAsync().ConfigureAwait(false);
 
                                         {{(m.ReturnType.IsVoid() ? null : $$"""
                                             // return type
-                                            return await reader.{{m.ReturnType.GetBinaryReaderFunctionName()}}Async().ConfigureAwait(false);
+                                            return {{m.ReturnType.GetBinaryReaderCall()}};
                                             """)}}
                                     }
                                 }
