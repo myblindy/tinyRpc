@@ -26,7 +26,7 @@ static class Program
     {
         using var rpcServer = new MyRpcServer(args, new(), CancellationToken.None);
 
-        while (true)
+        while (rpcServer.Healthy)
             await Task.Delay(100);
     }
 }

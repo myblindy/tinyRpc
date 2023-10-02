@@ -1,11 +1,5 @@
 ﻿using Overby.Extensions.AsyncBinaryReaderWriter;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.IO.Pipes;
-using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace TinyRpc;
 
@@ -14,6 +8,8 @@ public abstract class TinyRpcServer : IDisposable
     protected readonly NamedPipeClientStream pipe;
     protected readonly AsyncBinaryReader reader;
     protected readonly AsyncBinaryWriter writer;
+
+    public bool Healthy { get; protected set; } = true;
 
     public TinyRpcServer(string[] args, CancellationToken ct)
     {

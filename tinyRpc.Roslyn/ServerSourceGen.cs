@@ -1,7 +1,5 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
-using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace TinyRpc.Roslyn;
@@ -32,26 +30,34 @@ class ServerSourceGen : IIncrementalGenerator
 
                             protected override async Task MessageHandler(CancellationToken ct)
                             {
-                                await pipe.ConnectAsync(ct).ConfigureAwait(false);
-
-                                while (!ct.IsCancellationRequested)
+                                try
                                 {
-                                    var name = await reader.ReadStringAsync().ConfigureAwait(false);
+                                    await pipe.ConnectAsync(ct).ConfigureAwait(false);
 
-                                    {{string.Join("\n", serverType.Methods.Select(m => $$"""
-                                        if (name == "{{m.Name}}")
-                                        {
-                                            {{(m.ReturnType.IsVoid() ? null : "var result = ")}}
-                                            serverHandler.{{m.Name}}({{string.Join(", ", m.Parameters.Select(p =>
-                                                p.Type.GetBinaryReaderCall()))}});
+                                    while (!ct.IsCancellationRequested)
+                                    {
+                                        var name = await reader.ReadStringAsync().ConfigureAwait(false);
 
-                                            {{(m.ReturnType.IsVoid() ? null : $$"""
-                                                // return the result
-                                                {{m.ReturnType.GetBinaryWriterCall("result")}}
-                                                await writer.FlushAsync().ConfigureAwait(false);
-                                                """)}}
-                                        }
-                                        """))}}
+                                        {{string.Join("\n", serverType.Methods.Select(m => $$"""
+                                            if (name == "{{m.Name}}")
+                                            {
+                                                {{(m.ReturnType.IsVoid() ? null : "var result = ")}}
+                                                serverHandler.{{m.Name}}({{string.Join(", ", m.Parameters.Select(p =>
+                                                    p.Type.GetBinaryReaderCall()))}});
+
+                                                {{(m.ReturnType.IsVoid() ? null : $$"""
+                                                    // return the result
+                                                    {{m.ReturnType.GetBinaryWriterCall("result")}}
+                                                    await writer.FlushAsync().ConfigureAwait(false);
+                                                    """)}}
+                                            }
+                                            """))}}
+                                    }
+                                }
+                                catch(ArgumentException) 
+                                {
+                                    // pipe broken, end the server
+                                    Healthy = false;
                                 }
                             }
                         }
