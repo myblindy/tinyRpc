@@ -71,9 +71,17 @@ static class Utils
             p.Type.GetBinaryReaderCall()))})",
         "global::System.String" => "await reader.ReadStringAsync().ConfigureAwait(false)",
         "global::System.Int16" => "await reader.ReadInt16Async().ConfigureAwait(false)",
+        "global::System.UInt16" => "await reader.ReadUInt16Async().ConfigureAwait(false)",
         "global::System.Int32" => "await reader.ReadInt32Async().ConfigureAwait(false)",
+        "global::System.UInt32" => "await reader.ReadUInt32Async().ConfigureAwait(false)",
+        "global::System.Int64" => "await reader.ReadInt64Async().ConfigureAwait(false)",
+        "global::System.UInt64" => "await reader.ReadUInt64Async().ConfigureAwait(false)",
+        "global::System.Double" => "await reader.ReadDoubleAsync().ConfigureAwait(false)",
+        "global::System.DateTime" => "new System.DateTime(await reader.ReadInt64Async().ConfigureAwait(false))",
         "global::System.Byte[]" => "await reader.ReadBytesAsync(await reader.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
-        _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.Name}")
+        _ when type is IArrayTypeSymbol arrayTypeSymbol =>
+            $"await reader.ReadArray(async reader => {arrayTypeSymbol.ElementType.GetBinaryReaderCall()})",
+        _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.ToFullyQualifiedString()}")
     };
 
     internal static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
@@ -84,6 +92,14 @@ static class Utils
             await writer.WriteAsync({{name}}.Length).ConfigureAwait(false);
             await writer.WriteAsync({{name}}).ConfigureAwait(false);
             """,
+        _ when type is IArrayTypeSymbol arrayTypeSymbol => $$"""
+            await writer.WriteAsync({{name}}.Length).ConfigureAwait(false);
+            foreach(var _element{{type.GetHashCode():X}} in {{name}})
+            {
+                {{arrayTypeSymbol.ElementType.GetBinaryWriterCall($"_element{type.GetHashCode():X}")}}
+            }
+            """,
+        "global::System.DateTime" => $"await writer.WriteAsync({name}.Ticks).ConfigureAwait(false);",
         _ => $"await writer.WriteAsync({name}).ConfigureAwait(false);"
     };
 

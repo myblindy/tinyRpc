@@ -16,6 +16,11 @@ class ClientSourceGen : IIncrementalGenerator
             foreach (var clientType in clientTypes)
                 if (clientType is not null)
                     ctx.AddSource($"tinyRpc.{clientType.Name}Client.g.cs", SourceText.From($$"""
+                        using TinyRpc;
+                        using System;
+                        using System.Threading;
+                        using System.Threading.Tasks;
+                        
                         {{(clientType.Namespace is null ? null : $"namespace {clientType.Namespace};")}}
 
                         partial class {{clientType.Name}} : TinyRpc.TinyRpcClient

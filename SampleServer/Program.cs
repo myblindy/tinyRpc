@@ -1,6 +1,9 @@
 ﻿using SampleShared;
+using System;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 using TinyRpc;
 
 class ServerHandler : IServer
@@ -10,6 +13,14 @@ class ServerHandler : IServer
         Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(baseUtf8String) + " x" + n);
     public void FancyHi(string name, int age) =>
         Console.WriteLine($"Fancy hi, {age} years old {name}!");
+
+    public (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult() => new[]
+    {
+        (1U, 15, DateTime.Now, 35.0),
+        (uint.MaxValue, long.MaxValue, DateTime.MaxValue, double.MinValue),
+        (uint.MinValue, long.MinValue, DateTime.MinValue, double.MaxValue)
+    };
+
     public (int a, int b, short c, byte[] utf8) GetValueTupleResult(string s) =>
         Regex.Match(s, @"^(\d+) (\d+) (\d+) (.*)$") is not { Success: true } m ? default
             : (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value),

@@ -16,6 +16,11 @@ class ServerSourceGen : IIncrementalGenerator
             foreach (var serverType in serverTypes)
                 if (serverType is not null)
                     ctx.AddSource($"tinyRpc.{serverType.Name}Server.g.cs", SourceText.From($$"""
+                        using TinyRpc;
+                        using System;
+                        using System.Threading;
+                        using System.Threading.Tasks;
+                        
                         {{(serverType.Namespace is null ? null : $"namespace {serverType.Namespace};")}}
 
                         partial class {{serverType.Name}} : TinyRpc.TinyRpcServer
