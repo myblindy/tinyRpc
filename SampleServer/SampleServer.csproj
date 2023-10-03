@@ -8,11 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\tinyRpc\tinyRpc.csproj" />
+    <ProjectReference Include="..\tinyRpc\tinyRpc.csproj" Condition="'$(Configuration)' != 'Release'" />
     <ProjectReference Include="..\tinyRpc.Roslyn\tinyRpc.Roslyn.csproj" Condition="'$(Configuration)' != 'Release'"
                       PrivateAssets="all"
                       ReferenceOutputAssembly="false"
                       OutputItemType="Analyzer"/>
+
+    <PackageReference Include="MB.TinyRpc" Version="1.0.0" Condition="'$(Configuration)' == 'Release'" />
   </ItemGroup>
 
   <Import Project="..\SampleShared\SampleShared.projitems" Label="Shared" />
