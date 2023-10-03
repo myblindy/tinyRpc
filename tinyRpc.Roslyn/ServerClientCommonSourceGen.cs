@@ -5,30 +5,19 @@ using System.Collections.Immutable;
 
 namespace TinyRpc.Roslyn;
 
-class SCMethodType
+class SCMethodType(string name, ITypeSymbol returnType, IEnumerable<(string Name, ITypeSymbol Type)> parameters)
 {
-    public SCMethodType(string name, ITypeSymbol returnType, IEnumerable<(string Name, ITypeSymbol Type)> parameters) =>
-        (Name, Parameters, ReturnType) = (name, parameters.ToImmutableArray(), returnType);
-
-    public string Name { get; }
-    public ITypeSymbol ReturnType { get; }
-    public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; }
+    public string Name { get; } = name;
+    public ITypeSymbol ReturnType { get; } = returnType;
+    public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; } = parameters.ToImmutableArray();
 }
 
-class SCType
+class SCType(string? @namespace, string name, IEnumerable<SCMethodType> methods, INamedTypeSymbol serverSymbol)
 {
-    public SCType(string? @namespace, string name, IEnumerable<SCMethodType> methods, INamedTypeSymbol serverSymbol)
-    {
-        Namespace = @namespace;
-        Name = name;
-        Methods = methods.ToImmutableArray();
-        ServerSymbol = serverSymbol;
-    }
-
-    public string? Namespace { get; }
-    public string Name { get; }
-    public ImmutableArray<SCMethodType> Methods { get; }
-    public INamedTypeSymbol ServerSymbol { get; }
+    public string? Namespace { get; } = @namespace;
+    public string Name { get; } = name;
+    public ImmutableArray<SCMethodType> Methods { get; } = methods.ToImmutableArray();
+    public INamedTypeSymbol ServerSymbol { get; } = serverSymbol;
 }
 
 static class Utils
