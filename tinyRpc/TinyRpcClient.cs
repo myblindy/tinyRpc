@@ -46,7 +46,12 @@ public class TinyRpcClient : IDisposable
                 // managed
             }
 
-            // unmanaged
+            reader.Dispose();
+            writer.Dispose();
+            pipe.Dispose();
+            try { serverProcess.Kill(); } catch { }
+            serverProcess.Dispose();
+
             disposedValue = true;
         }
     }

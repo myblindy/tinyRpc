@@ -64,6 +64,11 @@ class ServerSourceGen : IIncrementalGenerator
                                     // pipe broken, end the server
                                     Healthy = false;
                                 }
+                                catch(System.IO.EndOfStreamException) 
+                                {
+                                    // pipe broken, end the server
+                                    Healthy = false;
+                                }
                             }
                         }
                         """, Encoding.UTF8));

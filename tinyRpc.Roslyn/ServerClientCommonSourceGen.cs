@@ -59,6 +59,7 @@ static class Utils
         _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
             p.Type.GetBinaryReaderCall()))})",
         "global::System.String" => "await reader.ReadStringAsync().ConfigureAwait(false)",
+        "global::System.Boolean" => "await reader.ReadBooleanAsync().ConfigureAwait(false)",
         "global::System.Int16" => "await reader.ReadInt16Async().ConfigureAwait(false)",
         "global::System.UInt16" => "await reader.ReadUInt16Async().ConfigureAwait(false)",
         "global::System.Int32" => "await reader.ReadInt32Async().ConfigureAwait(false)",
