@@ -14,11 +14,11 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/myblindy/tinyRpc</PackageProjectUrl>
 
-    <VersionPrefix>1.3.0</VersionPrefix>
+    <VersionPrefix>1.4.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MB.TinyRpc.Roslyn" Version="1.2.0" Condition="'$(Configuration)' == 'Release'" />
+    <PackageReference Include="MB.TinyRpc.Roslyn" Version="1.3.0" Condition="'$(Configuration)' == 'Release'" />
     <PackageReference Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
     <PackageReference Include="Overby.Extensions.AsyncBinaryReaderWriter" Version="1.0.39" />
   </ItemGroup>
