@@ -16,7 +16,7 @@
                       ReferenceOutputAssembly="false"
                       OutputItemType="Analyzer"/>
 
-    <PackageReference Include="MB.TinyRpc" Version="1.2.0" Condition="'$(Configuration)' == 'Release'" />
+    <PackageReference Include="MB.TinyRpc" Version="1.4.0" Condition="'$(Configuration)' == 'Release'" />
   </ItemGroup>
 
 </Project>
