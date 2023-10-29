@@ -11,13 +11,16 @@ public class TinyRpcClient : IDisposable
     protected readonly NamedPipeServerStream pipe;
     protected readonly AsyncBinaryWriter writer;
     protected readonly AsyncBinaryReader reader;
-    protected readonly AsyncMonitor monitor = new();
+    protected readonly AsyncMonitor callMonitor = new();
+    protected readonly AsyncMonitor readMonitor = new();
+    protected readonly AsyncManualResetEvent returnReadReadyEvent = new();
+    protected readonly AsyncAutoResetEvent returnReadCompletedEvent = new();
     protected readonly AsyncManualResetEvent connectedEvent = new();
 
     public TinyRpcClient(string serverPath, CancellationToken ct)
     {
         var clientId = Guid.NewGuid().ToString();
-        pipe = new(clientId);
+        pipe = new(clientId, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         writer = new(pipe);
         reader = new(pipe);
 

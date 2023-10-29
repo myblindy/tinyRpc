@@ -1,8 +1,12 @@
 {
   "profiles": {
-    "Profile 1": {
+    "Server Debug": {
       "commandName": "DebugRoslynComponent",
       "targetProject": "..\\SampleServer\\SampleServer.csproj"
+    },
+    "Client Debug": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\SampleClient\\SampleClient.csproj"
     }
   }
 }

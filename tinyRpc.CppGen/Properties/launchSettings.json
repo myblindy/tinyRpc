@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "tinyRpc.CppGen": {
+      "commandName": "Project",
+      "commandLineArgs": "--input-project-path \"E:\\gitrepos\\tinyRpc\\SampleClient\\SampleClient.csproj\" --input-class-names \"SampleShared.IServer\" --output-path \"E:\\gitrepos\\tinyRpc\\CppTest\\out.h\" --output-class-names \"TinyRpcServer\""
+    }
+  }
+}
