@@ -3,11 +3,15 @@
 #include <iostream>
 #include <regex>
 
+using namespace std::chrono_literals;
+
 #undef min
 #undef max
 
 class ServerHandler : public TinyRpcServer
 {
+	std::vector<uint8_t> to_vector(const std::string& str) { return { str.begin(), str.end() }; }
+
 public:
 	ServerHandler(int argc, char** argv) : TinyRpcServer(argc, argv) { }
 
@@ -28,16 +32,15 @@ public:
 		std::smatch match;
 		std::regex_match(s, match, regex);
 		if (match.size() != 5) throw std::runtime_error("Invalid string format");
-		return std::make_tuple(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3]),
-			std::vector<uint8_t>(match[4].str().begin(), match[4].str().end()));
+		return std::make_tuple(std::stoi(match[1]), std::stoi(match[2]), std::stoi(match[3]), to_vector(match[4].str()));
 	}
 	std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>> GetValueTupleArrayResult() override
 	{
 		return std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>>
 		{
 			std::make_tuple(1, 2, std::chrono::system_clock::now(), 3.14),
-				std::make_tuple(4, 5, std::chrono::system_clock::time_point().min(), 6.28),
-				std::make_tuple(7, 8, std::chrono::system_clock::time_point().max(), 9.42),
+				std::make_tuple(4, 5, std::chrono::system_clock::now() - 10s, 6.28),
+				std::make_tuple(7, 8, std::chrono::system_clock::now() + 10s, 9.42),
 		};
 	}
 };

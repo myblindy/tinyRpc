@@ -127,7 +127,7 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
 
             			T result;
             			result.reserve(len);
-            			for (auto i = 0; i < len; i++)
+            			for (size_t i = 0; i < len; i++)
             				result.push_back(ReadNext<typename T::value_type>());
             			return result;
             		}
@@ -149,6 +149,16 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             		auto result = std::string(reinterpret_cast<const char*>(incomingBuffer.data()), len);
             		incomingBuffer.erase(incomingBuffer.begin(), incomingBuffer.begin() + len);
             		return result;
+            	}
+
+            	template<>
+            	std::chrono::system_clock::time_point ReadNext<std::chrono::system_clock::time_point>()
+            	{
+            		auto ticks = ReadNext<int64_t>();
+            		std::chrono::nanoseconds ns{ (ticks - 621355968000000000) * 100 };
+
+            		// Construct a system_clock::time_point by adding the duration to the epoch
+            		return std::chrono::system_clock::from_time_t(0) + duration_cast<std::chrono::system_clock::duration>(ns);
             	}
             #pragma endregion
 
@@ -174,8 +184,24 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             		for (const auto& item : value)
             			Write(item);
             	}
+
+            	template<typename... TValues>
+            	void Write(const std::tuple<TValues...>& value)
+            	{
+            		std::apply([&](auto&&... args) { (Write(args), ...); }, value);
+            	}
+
+            	void Write(const std::chrono::system_clock::time_point& value)
+            	{
+            		// convert value to .NET ticks
+            		auto duration = value.time_since_epoch();
+            		long long ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / 100
+            			+ 621355968000000000;
+
+            		Write(ticks);
+            	}
             #pragma endregion
-                                    
+            
             public:
             	{{outputClassName}}(int argc, char** argv)
             	{

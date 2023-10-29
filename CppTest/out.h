@@ -5,7 +5,8 @@
 #include <string>
 #include <chrono>
 #include <thread>
-        
+#include <chrono>
+
 class TinyRpcServer
 {
 	HANDLE hPipe;
@@ -52,55 +53,55 @@ class TinyRpcServer
 		{
 			auto methodId = ReadNext<std::string>();
 
-            if(methodId == "Hi")
-{
-    
-    
-    Hi();
-    
-}
-if(methodId == "FancyHi")
-{
-    auto p0 = ReadNext<std::string>();
-auto p1 = ReadNext<int32_t>();
-    
-    FancyHi(p0, p1);
-    
-}
-if(methodId == "Add")
-{
-    auto p0 = ReadNext<int32_t>();
-auto p1 = ReadNext<int32_t>();
-    Write((uint8_t)0);     // data
-auto result = 
-    Add(p0, p1);
-    Write(result);
-}
-if(methodId == "BufferCall")
-{
-    auto p0 = ReadNext<std::vector<uint8_t>>();
-auto p1 = ReadNext<int32_t>();
-    Write((uint8_t)0);     // data
-auto result = 
-    BufferCall(p0, p1);
-    Write(result);
-}
-if(methodId == "GetValueTupleResult")
-{
-    auto p0 = ReadNext<std::string>();
-    Write((uint8_t)0);     // data
-auto result = 
-    GetValueTupleResult(p0);
-    Write(result);
-}
-if(methodId == "GetValueTupleArrayResult")
-{
-    
-    Write((uint8_t)0);     // data
-auto result = 
-    GetValueTupleArrayResult();
-    Write(result);
-}
+			if (methodId == "Hi")
+			{
+
+
+				Hi();
+
+			}
+			if (methodId == "FancyHi")
+			{
+				auto p0 = ReadNext<std::string>();
+				auto p1 = ReadNext<int32_t>();
+
+				FancyHi(p0, p1);
+
+			}
+			if (methodId == "Add")
+			{
+				auto p0 = ReadNext<int32_t>();
+				auto p1 = ReadNext<int32_t>();
+				Write((uint8_t)0);     // data
+				auto result =
+					Add(p0, p1);
+				Write(result);
+			}
+			if (methodId == "BufferCall")
+			{
+				auto p0 = ReadNext<std::vector<uint8_t>>();
+				auto p1 = ReadNext<int32_t>();
+				Write((uint8_t)0);     // data
+				auto result =
+					BufferCall(p0, p1);
+				Write(result);
+			}
+			if (methodId == "GetValueTupleResult")
+			{
+				auto p0 = ReadNext<std::string>();
+				Write((uint8_t)0);     // data
+				auto result =
+					GetValueTupleResult(p0);
+				Write(result);
+			}
+			if (methodId == "GetValueTupleArrayResult")
+			{
+
+				Write((uint8_t)0);     // data
+				auto result =
+					GetValueTupleArrayResult();
+				Write(result);
+			}
 		}
 	}
 
@@ -117,7 +118,7 @@ auto result =
 
 			T result;
 			result.reserve(len);
-			for (auto i = 0; i < len; i++)
+			for (size_t i = 0; i < len; i++)
 				result.push_back(ReadNext<typename T::value_type>());
 			return result;
 		}
@@ -140,8 +141,18 @@ auto result =
 		incomingBuffer.erase(incomingBuffer.begin(), incomingBuffer.begin() + len);
 		return result;
 	}
+
+	template<>
+	std::chrono::system_clock::time_point ReadNext<std::chrono::system_clock::time_point>()
+	{
+		auto ticks = ReadNext<int64_t>();
+		std::chrono::nanoseconds ns{ (ticks - 621355968000000000) * 100 };
+
+		// Construct a system_clock::time_point by adding the duration to the epoch
+		return std::chrono::system_clock::from_time_t(0) + duration_cast<std::chrono::system_clock::duration>(ns);
+	}
 #pragma endregion
-            
+
 #pragma region Write Functions
 	template<typename T>
 	void Write(const T& value)
@@ -164,9 +175,25 @@ auto result =
 		for (const auto& item : value)
 			Write(item);
 	}
+
+	template<typename... TValues>
+	void Write(const std::tuple<TValues...>& value)
+	{
+		std::apply([&](auto&&... args) { (Write(args), ...); }, value);
+	}
+
+	void Write(const std::chrono::system_clock::time_point& value)
+	{
+		// convert value to .NET ticks
+		auto duration = value.time_since_epoch();
+		long long ticks = std::chrono::duration_cast<std::chrono::nanoseconds>(duration).count() / 100
+			+ 621355968000000000;
+
+		Write(ticks);
+	}
 #pragma endregion
 
-            
+
 public:
 	TinyRpcServer(int argc, char** argv)
 	{
@@ -187,11 +214,11 @@ public:
 		listenerThread->join();
 		CloseHandle(hPipe);
 	}
-	                
-    virtual void Hi() = 0;
-virtual void FancyHi(std::string name, int32_t age) = 0;
-virtual int32_t Add(int32_t x, int32_t y) = 0;
-virtual std::vector<uint8_t> BufferCall(std::vector<uint8_t> baseUtf8String, int32_t n) = 0;
-virtual std::tuple<int32_t, int32_t, int16_t, std::vector<uint8_t>> GetValueTupleResult(std::string s) = 0;
-virtual std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>> GetValueTupleArrayResult() = 0;
+
+	virtual void Hi() = 0;
+	virtual void FancyHi(std::string name, int32_t age) = 0;
+	virtual int32_t Add(int32_t x, int32_t y) = 0;
+	virtual std::vector<uint8_t> BufferCall(std::vector<uint8_t> baseUtf8String, int32_t n) = 0;
+	virtual std::tuple<int32_t, int32_t, int16_t, std::vector<uint8_t>> GetValueTupleResult(std::string s) = 0;
+	virtual std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>> GetValueTupleArrayResult() = 0;
 };
