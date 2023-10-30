@@ -25,6 +25,8 @@ static class Program
         Console.WriteLine($"[CLIENT] {Encoding.UTF8.GetString(
             await client.BufferCallAsync(Encoding.UTF8.GetBytes("arf arf"), 10))}");
 
+        await Task.Delay(TimeSpan.FromSeconds(2));
+
         var (a, b, c, utf8) = await client.GetValueTupleResultAsync("120 150 1000 plain ol string");
         Console.WriteLine($"[CLIENT] GetValueTupleResultAsync: a={a} b={b} c={c} utf8={Encoding.UTF8.GetString(utf8)}");
 

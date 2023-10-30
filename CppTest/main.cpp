@@ -50,5 +50,8 @@ int main(int argc, char* argv[])
 	ServerHandler server(argc, argv);
 
 	while (true)
-		Sleep(1000);
+	{
+		Sleep(800);
+		server.FireOnData(rand() / (double)RAND_MAX, "moopsies");
+	}
 }

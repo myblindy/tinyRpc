@@ -25,6 +25,7 @@ if (string.IsNullOrWhiteSpace(inputProjectPath) || inputClassNames is null || st
 // load the project
 MSBuildLocator.RegisterDefaults();
 var project = await MSBuildWorkspace.Create().OpenProjectAsync(inputProjectPath);
+project = project.AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 if (await project.GetCompilationAsync() is not { } compilation) return;
 
 // output stream
@@ -37,7 +38,10 @@ outputStream.WriteLine("""
         #include <string>
         #include <chrono>
         #include <thread>
-                
+        
+        #pragma warning( push )
+        #pragma warning( disable : 6387)
+        
         """);
 
 // parse the compilation for symbols
@@ -54,45 +58,55 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             class {{outputClassName}}
             {
             	HANDLE hPipe;
+                CRITICAL_SECTION writeCriticalSection;
             	std::unique_ptr<std::jthread> listenerThread;
 
             	std::vector<uint8_t> incomingBuffer;
 
             	void ReadFromPipe(size_t atLeastBytes)
             	{
-            		constexpr auto readChunkSize = 100;
-            		char readChunk[readChunkSize] = {};
+                    constexpr auto readChunkSize = 100;
+                    char readChunk[readChunkSize] = {};
 
-            		while (incomingBuffer.size() < atLeastBytes)
-            		{
-            			// ensure at least readChunkSize reserved space
-            			if (incomingBuffer.capacity() < incomingBuffer.size() + readChunkSize)
-            				incomingBuffer.reserve(incomingBuffer.size() + readChunkSize);
+                    OVERLAPPED ov{};
+                    ov.hEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 
-            			// read chunk
-            			DWORD readBytesCount = readChunkSize;
-            			auto result = ReadFile(hPipe, readChunk, readChunkSize, &readBytesCount, nullptr);
+                    while (incomingBuffer.size() < atLeastBytes)
+                    {
+                        // ensure at least readChunkSize reserved space
+                        if (incomingBuffer.capacity() < incomingBuffer.size() + readChunkSize)
+                            incomingBuffer.reserve(incomingBuffer.size() + readChunkSize);
+                        
+                        // read chunk
+                        DWORD readBytesCount = readChunkSize;
+                        auto result = ReadFile(hPipe, readChunk, readChunkSize, &readBytesCount, &ov);
+                        
+                        if (!result)
+                        {
+                            auto lastError = GetLastError();
+                        
+                            // broken pipe?
+                            if (lastError == ERROR_PIPE_NOT_CONNECTED || lastError == ERROR_BROKEN_PIPE)
+                                exit(4);
+                            else if (lastError == ERROR_IO_PENDING)
+                            {
+                                // wait for the operation to complete
+                                WaitForSingleObject(ov.hEvent, INFINITE);
+                                GetOverlappedResult(hPipe, &ov, &readBytesCount, TRUE);
+                            }
+                            else
+                                exit(5);
+                        }
+                        
+                        // copy chunk into buffer
+                        incomingBuffer.insert(incomingBuffer.end(), readChunk, readChunk + readBytesCount);
+                    }
 
-            			// broken pipe?
-            			if (!result)
-            			{
-            				auto lastError = GetLastError();
-            				if (lastError == ERROR_PIPE_NOT_CONNECTED || lastError == ERROR_BROKEN_PIPE)
-            					exit(4);
-            			}
-
-            			// copy chunk into buffer
-            			incomingBuffer.insert(incomingBuffer.end(), readChunk, readChunk + readBytesCount);
-            		}
+                    CloseHandle(ov.hEvent);
             	}
 
             	void ListenHandler()
             	{
-            		// connect
-            		DWORD mode = PIPE_READMODE_BYTE | PIPE_WAIT;
-            		if (!SetNamedPipeHandleState(hPipe, nullptr, nullptr, nullptr))
-            			exit(3);
-
             		while (!listenerThread->get_stop_token().stop_requested())
             		{
             			auto methodId = ReadNext<std::string>();
@@ -103,12 +117,15 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
                                 {{string.Join("\n", m.Parameters.Select((p, pIdx) => $$"""
                                     auto p{{pIdx}} = ReadNext<{{CsToCppType(p.Type)}}>();
                                     """))}}
-                                {{(m.ReturnsVoid ? null : $"""
-                                    Write((uint8_t)0);     // data
-                                    auto result = 
-                                    """)}}
+                                {{(m.ReturnsVoid ? null : "auto result = ")}}
                                 {{m.Name}}({{string.Join(", ", Enumerable.Range(0, m.Parameters.Length).Select(i => $"p{i}"))}});
-                                {{(m.ReturnsVoid ? null : "Write(result);")}}
+                                {{(m.ReturnsVoid ? null : $"""
+                                    EnterCriticalSection(&writeCriticalSection);
+                                    Write((uint8_t)0);     // data
+                                    Write(result);
+                                    FlushFileBuffers(hPipe);
+                                    LeaveCriticalSection(&writeCriticalSection);
+                                    """)}}
                             }
                             """))}}
             		}
@@ -209,10 +226,11 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
 
             		// open the pipe
             		hPipe = CreateFileA((std::string("\\\\.\\pipe\\") + argv[1]).c_str(), GENERIC_READ | GENERIC_WRITE,
-            			0, nullptr, OPEN_EXISTING, 0, nullptr);
+            			0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
             		if (hPipe == INVALID_HANDLE_VALUE) exit(2);
 
             		// start the listener thread
+                    InitializeCriticalSection(&writeCriticalSection);
             		listenerThread = std::make_unique<std::jthread>(&{{outputClassName}}::ListenHandler, this);
             	}
 
@@ -222,12 +240,28 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             		listenerThread->join();
             		CloseHandle(hPipe);
             	}
+
+                {{string.Join("\n", events.Select(e => $$"""
+                    void Fire{{e.Name}}({{string.Join(", ", (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
+                        .Select(p => $"{CsToCppType(p.Type)} {p.Name}") ?? Array.Empty<string>())}})
+                    {
+                        EnterCriticalSection(&writeCriticalSection);
+                        Write((uint8_t)1);     // event data
+                        Write(std::string("{{e.Name}}"));
+                        {{string.Join("\n", (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
+                            .Select(p => $"Write({p.Name});") ?? Array.Empty<string>())}}
+                        FlushFileBuffers(hPipe);
+                        LeaveCriticalSection(&writeCriticalSection);
+                    }
+                    """))}}
             	                
                 {{string.Join("\n", methods.Select(m => $$"""
                     virtual {{CsToCppType(m.ReturnType)}} {{m.Name}}({{string.Join(", ",
                         m.Parameters.Select(p => $"{CsToCppType(p.Type)} {p.Name}"))}}) = 0;
                     """))}}
             };
+
+            #pragma warning( pop )
             """);
     }
 

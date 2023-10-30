@@ -5,103 +5,128 @@
 #include <string>
 #include <chrono>
 #include <thread>
-#include <chrono>
+        
+
+#pragma warning( push )
+#pragma warning( disable : 6387)
 
 class TinyRpcServer
 {
 	HANDLE hPipe;
+    CRITICAL_SECTION writeCriticalSection;
 	std::unique_ptr<std::jthread> listenerThread;
 
 	std::vector<uint8_t> incomingBuffer;
 
 	void ReadFromPipe(size_t atLeastBytes)
 	{
-		constexpr auto readChunkSize = 100;
-		char readChunk[readChunkSize] = {};
+        constexpr auto readChunkSize = 100;
+        char readChunk[readChunkSize] = {};
 
-		while (incomingBuffer.size() < atLeastBytes)
-		{
-			// ensure at least readChunkSize reserved space
-			if (incomingBuffer.capacity() < incomingBuffer.size() + readChunkSize)
-				incomingBuffer.reserve(incomingBuffer.size() + readChunkSize);
+        OVERLAPPED ov{};
+        ov.hEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 
-			// read chunk
-			DWORD readBytesCount = readChunkSize;
-			auto result = ReadFile(hPipe, readChunk, readChunkSize, &readBytesCount, nullptr);
+        while (incomingBuffer.size() < atLeastBytes)
+        {
+            // ensure at least readChunkSize reserved space
+            if (incomingBuffer.capacity() < incomingBuffer.size() + readChunkSize)
+                incomingBuffer.reserve(incomingBuffer.size() + readChunkSize);
+            
+            // read chunk
+            DWORD readBytesCount = readChunkSize;
+            auto result = ReadFile(hPipe, readChunk, readChunkSize, &readBytesCount, &ov);
+            
+            if (!result)
+            {
+                auto lastError = GetLastError();
+            
+                // broken pipe?
+                if (lastError == ERROR_PIPE_NOT_CONNECTED || lastError == ERROR_BROKEN_PIPE)
+                    exit(4);
+                else if (lastError == ERROR_IO_PENDING)
+                {
+                    // wait for the operation to complete
+                    WaitForSingleObject(ov.hEvent, INFINITE);
+                    GetOverlappedResult(hPipe, &ov, &readBytesCount, TRUE);
+                }
+                else
+                    exit(5);
+            }
+            
+            // copy chunk into buffer
+            incomingBuffer.insert(incomingBuffer.end(), readChunk, readChunk + readBytesCount);
+        }
 
-			// broken pipe?
-			if (!result)
-			{
-				auto lastError = GetLastError();
-				if (lastError == ERROR_PIPE_NOT_CONNECTED || lastError == ERROR_BROKEN_PIPE)
-					exit(4);
-			}
-
-			// copy chunk into buffer
-			incomingBuffer.insert(incomingBuffer.end(), readChunk, readChunk + readBytesCount);
-		}
+        CloseHandle(ov.hEvent);
 	}
 
 	void ListenHandler()
 	{
-		// connect
-		DWORD mode = PIPE_READMODE_BYTE | PIPE_WAIT;
-		if (!SetNamedPipeHandleState(hPipe, nullptr, nullptr, nullptr))
-			exit(3);
-
 		while (!listenerThread->get_stop_token().stop_requested())
 		{
 			auto methodId = ReadNext<std::string>();
 
-			if (methodId == "Hi")
-			{
-
-
-				Hi();
-
-			}
-			if (methodId == "FancyHi")
-			{
-				auto p0 = ReadNext<std::string>();
-				auto p1 = ReadNext<int32_t>();
-
-				FancyHi(p0, p1);
-
-			}
-			if (methodId == "Add")
-			{
-				auto p0 = ReadNext<int32_t>();
-				auto p1 = ReadNext<int32_t>();
-				Write((uint8_t)0);     // data
-				auto result =
-					Add(p0, p1);
-				Write(result);
-			}
-			if (methodId == "BufferCall")
-			{
-				auto p0 = ReadNext<std::vector<uint8_t>>();
-				auto p1 = ReadNext<int32_t>();
-				Write((uint8_t)0);     // data
-				auto result =
-					BufferCall(p0, p1);
-				Write(result);
-			}
-			if (methodId == "GetValueTupleResult")
-			{
-				auto p0 = ReadNext<std::string>();
-				Write((uint8_t)0);     // data
-				auto result =
-					GetValueTupleResult(p0);
-				Write(result);
-			}
-			if (methodId == "GetValueTupleArrayResult")
-			{
-
-				Write((uint8_t)0);     // data
-				auto result =
-					GetValueTupleArrayResult();
-				Write(result);
-			}
+            if(methodId == "Hi")
+{
+    
+    
+    Hi();
+    
+}
+if(methodId == "FancyHi")
+{
+    auto p0 = ReadNext<std::string>();
+auto p1 = ReadNext<int32_t>();
+    
+    FancyHi(p0, p1);
+    
+}
+if(methodId == "Add")
+{
+    auto p0 = ReadNext<int32_t>();
+auto p1 = ReadNext<int32_t>();
+    auto result = 
+    Add(p0, p1);
+    EnterCriticalSection(&writeCriticalSection);
+Write((uint8_t)0);     // data
+Write(result);
+FlushFileBuffers(hPipe);
+LeaveCriticalSection(&writeCriticalSection);
+}
+if(methodId == "BufferCall")
+{
+    auto p0 = ReadNext<std::vector<uint8_t>>();
+auto p1 = ReadNext<int32_t>();
+    auto result = 
+    BufferCall(p0, p1);
+    EnterCriticalSection(&writeCriticalSection);
+Write((uint8_t)0);     // data
+Write(result);
+FlushFileBuffers(hPipe);
+LeaveCriticalSection(&writeCriticalSection);
+}
+if(methodId == "GetValueTupleResult")
+{
+    auto p0 = ReadNext<std::string>();
+    auto result = 
+    GetValueTupleResult(p0);
+    EnterCriticalSection(&writeCriticalSection);
+Write((uint8_t)0);     // data
+Write(result);
+FlushFileBuffers(hPipe);
+LeaveCriticalSection(&writeCriticalSection);
+}
+if(methodId == "GetValueTupleArrayResult")
+{
+    
+    auto result = 
+    GetValueTupleArrayResult();
+    EnterCriticalSection(&writeCriticalSection);
+Write((uint8_t)0);     // data
+Write(result);
+FlushFileBuffers(hPipe);
+LeaveCriticalSection(&writeCriticalSection);
+}
 		}
 	}
 
@@ -193,7 +218,6 @@ class TinyRpcServer
 	}
 #pragma endregion
 
-
 public:
 	TinyRpcServer(int argc, char** argv)
 	{
@@ -201,10 +225,11 @@ public:
 
 		// open the pipe
 		hPipe = CreateFileA((std::string("\\\\.\\pipe\\") + argv[1]).c_str(), GENERIC_READ | GENERIC_WRITE,
-			0, nullptr, OPEN_EXISTING, 0, nullptr);
+			0, nullptr, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, nullptr);
 		if (hPipe == INVALID_HANDLE_VALUE) exit(2);
 
 		// start the listener thread
+        InitializeCriticalSection(&writeCriticalSection);
 		listenerThread = std::make_unique<std::jthread>(&TinyRpcServer::ListenHandler, this);
 	}
 
@@ -215,10 +240,23 @@ public:
 		CloseHandle(hPipe);
 	}
 
-	virtual void Hi() = 0;
-	virtual void FancyHi(std::string name, int32_t age) = 0;
-	virtual int32_t Add(int32_t x, int32_t y) = 0;
-	virtual std::vector<uint8_t> BufferCall(std::vector<uint8_t> baseUtf8String, int32_t n) = 0;
-	virtual std::tuple<int32_t, int32_t, int16_t, std::vector<uint8_t>> GetValueTupleResult(std::string s) = 0;
-	virtual std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>> GetValueTupleArrayResult() = 0;
+    void FireOnData(double arg1, std::string arg2)
+{
+    EnterCriticalSection(&writeCriticalSection);
+    Write((uint8_t)1);     // event data
+    Write(std::string("OnData"));
+    Write(arg1);
+Write(arg2);
+    FlushFileBuffers(hPipe);
+    LeaveCriticalSection(&writeCriticalSection);
+}
+	                
+    virtual void Hi() = 0;
+virtual void FancyHi(std::string name, int32_t age) = 0;
+virtual int32_t Add(int32_t x, int32_t y) = 0;
+virtual std::vector<uint8_t> BufferCall(std::vector<uint8_t> baseUtf8String, int32_t n) = 0;
+virtual std::tuple<int32_t, int32_t, int16_t, std::vector<uint8_t>> GetValueTupleResult(std::string s) = 0;
+virtual std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>> GetValueTupleArrayResult() = 0;
 };
+
+#pragma warning( pop )
