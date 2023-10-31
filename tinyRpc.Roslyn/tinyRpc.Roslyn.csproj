@@ -17,8 +17,9 @@
     <Title>MB.TinyRpc.Roslyn</Title>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/myblindy/tinyRpc</PackageProjectUrl>
+    <Description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</Description>
 
-    <VersionPrefix>1.3.0</VersionPrefix>
+    <VersionPrefix>1.6.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

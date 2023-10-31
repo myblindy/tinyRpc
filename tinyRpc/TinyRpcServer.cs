@@ -1,4 +1,5 @@
-﻿using Overby.Extensions.AsyncBinaryReaderWriter;
+﻿using Nito.AsyncEx;
+using Overby.Extensions.AsyncBinaryReaderWriter;
 using System.IO.Pipes;
 
 namespace TinyRpc;
@@ -8,6 +9,9 @@ public abstract class TinyRpcServer : IDisposable
     protected readonly NamedPipeClientStream pipe;
     protected readonly AsyncBinaryReader reader;
     protected readonly AsyncBinaryWriter writer;
+
+    protected readonly AsyncManualResetEvent connectedEvent = new(false);
+    protected readonly AsyncMonitor writeMonitor = new();
 
     public bool Healthy { get; protected set; } = true;
 

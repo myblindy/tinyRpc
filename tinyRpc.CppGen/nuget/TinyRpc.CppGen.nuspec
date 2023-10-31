@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+    <metadata>
+        <id>MB.TinyRpc.CppGen</id>
+        <version>1.6</version>
+        <title>MB.TinyRpc.CppGen</title>
+        <authors>myblindy</authors>
+        <owners>myblindy</owners>
+        <description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</description>
+        <license type="expression">MIT</license>
+        <projectUrl>https://github.com/myblindy/tinyRpc</projectUrl>
+        <dependencies>
+            <!-- Add any dependencies here -->
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="..\**" target="content\TinyRpcCppGen" />
+        <!-- <file src="lib\**" target="native\lib" /> -->
+        <!-- Add any additional files here -->
+    </files>
+</package>

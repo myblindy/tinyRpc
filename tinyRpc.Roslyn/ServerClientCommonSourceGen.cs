@@ -5,45 +5,61 @@ using System.Collections.Immutable;
 
 namespace TinyRpc.Roslyn;
 
-class SCMethodType(string name, ITypeSymbol returnType, IEnumerable<(string Name, ITypeSymbol Type)> parameters)
+public class SCMethodType(string name, ITypeSymbol returnType, IEnumerable<(string Name, ITypeSymbol Type)>? parameters)
 {
     public string Name { get; } = name;
     public ITypeSymbol ReturnType { get; } = returnType;
-    public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; } = parameters.ToImmutableArray();
+    public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; } = parameters?.ToImmutableArray() ?? new();
 }
 
-class SCType(string? @namespace, string name, IEnumerable<SCMethodType> methods, INamedTypeSymbol serverSymbol)
+public class SCEventType(string name, IEnumerable<(string Name, ITypeSymbol Type)>? parameters)
+{
+    public string Name { get; } = name;
+    public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; } = parameters?.ToImmutableArray() ?? new();
+}
+
+public class SCType(string? @namespace, string name, IEnumerable<SCMethodType> methods, IEnumerable<SCEventType> events, INamedTypeSymbol serverSymbol)
 {
     public string? Namespace { get; } = @namespace;
     public string Name { get; } = name;
     public ImmutableArray<SCMethodType> Methods { get; } = methods.ToImmutableArray();
+    public ImmutableArray<SCEventType> Events { get; } = events.ToImmutableArray();
     public INamedTypeSymbol ServerSymbol { get; } = serverSymbol;
 }
 
-static class Utils
+public static class Utils
 {
-    internal static IncrementalValueProvider<ImmutableArray<SCType>> GetClassDeclarations(this SyntaxValueProvider syntaxValueProvider, string attributeName) => syntaxValueProvider
+    public static SCType? GetSyntaxClassDeclarations(this TypeDeclarationSyntax tds, 
+        IEnumerable<AttributeData> attributes, SemanticModel semanticModel)
+    {
+        if (attributes.First().ConstructorArguments.FirstOrDefault() is { } serverType
+            && serverType.Type?.ToString() is "System.Type"
+            && serverType.Value is INamedTypeSymbol serverNamedTypeSymbol
+            && semanticModel.GetDeclaredSymbol(tds) is { } classSymbol)
+        {
+            var events = serverNamedTypeSymbol.GetMembers().OfType<IEventSymbol>().ToList();
+
+            return new SCType(classSymbol.ContainingNamespace.IsGlobalNamespace ? null : classSymbol.ContainingNamespace.ToDisplayString(),
+                tds.Identifier.Text,
+                serverNamedTypeSymbol.GetMembers().OfType<IMethodSymbol>()
+                    .Where(s => s.Name.FirstOrDefault() is not '.' && !events.Any(e => s.Name == $"add_{e.Name}" || s.Name == $"remove_{e.Name}"))
+                    .Select(s => new SCMethodType(s.Name, s.ReturnType, s.Parameters.Select(p => (p.Name, p.Type)))),
+                events.Select(e => new SCEventType(e.Name,
+                    (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters.Select(ep => (ep.Name, ep.Type)))),
+                serverNamedTypeSymbol);
+        }
+
+        return null;
+    }
+
+    public static IncrementalValueProvider<ImmutableArray<SCType>> GetClassDeclarations(this SyntaxValueProvider syntaxValueProvider, string attributeName) => syntaxValueProvider
         .ForAttributeWithMetadataName(
                 attributeName,
                 predicate: static (n, _) => n.IsKind(SyntaxKind.ClassDeclaration) && ((ClassDeclarationSyntax)n).AttributeLists.Count > 0,
                 transform: static (ctx, ct) =>
                 {
-                    var cds = (ClassDeclarationSyntax)ctx.TargetNode;
-
-                    if (ctx.Attributes[0].ConstructorArguments.FirstOrDefault() is { } serverType
-                        && serverType.Type?.ToString() is "System.Type"
-                        && serverType.Value is INamedTypeSymbol serverNamedTypeSymbol
-                        && ctx.SemanticModel.GetDeclaredSymbol(cds) is { } classSymbol)
-                    {
-                        return new SCType(classSymbol.ContainingNamespace.IsGlobalNamespace ? null : classSymbol.ContainingNamespace.ToDisplayString(),
-                            cds.Identifier.Text,
-                            serverNamedTypeSymbol.GetMembers().OfType<IMethodSymbol>()
-                                .Where(s => s.Name.FirstOrDefault() is not '.')
-                                .Select(s => new SCMethodType(s.Name, s.ReturnType, s.Parameters.Select(p => (p.Name, p.Type)))),
-                            serverNamedTypeSymbol);
-                    }
-
-                    return null;
+                    var tds = (TypeDeclarationSyntax)ctx.TargetNode;
+                    return tds.GetSyntaxClassDeclarations(ctx.Attributes, ctx.SemanticModel);
                 })
             .Where(x => x is not null)
             .Collect()!;
@@ -52,9 +68,9 @@ static class Utils
         globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
-    internal static string ToFullyQualifiedString(this ITypeSymbol type) => type.ToDisplayString(fullyQualifiedSymbolDisplayFormat);
+    public static string ToFullyQualifiedString(this ITypeSymbol type) => type.ToDisplayString(fullyQualifiedSymbolDisplayFormat);
 
-    internal static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
+    public static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
     {
         _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
             p.Type.GetBinaryReaderCall()))})",
@@ -74,7 +90,7 @@ static class Utils
         _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.ToFullyQualifiedString()}")
     };
 
-    internal static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
+    public static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
     {
         _ when type.IsTupleType =>
             string.Join("\n", ((INamedTypeSymbol)type).TupleElements.Select(p => p.Type.GetBinaryWriterCall($"{name}.{p.Name}"))),
@@ -93,6 +109,6 @@ static class Utils
         _ => $"await writer.WriteAsync({name}).ConfigureAwait(false);"
     };
 
-    internal static bool IsVoid(this ITypeSymbol type) =>
+    public static bool IsVoid(this ITypeSymbol type) =>
         type.ToFullyQualifiedString() is "global::System.Void";
 }
