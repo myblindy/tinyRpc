@@ -13,10 +13,15 @@
     <Title>MB.TinyRpc</Title>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/myblindy/tinyRpc</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</Description>
 
-    <VersionPrefix>1.6.0</VersionPrefix>
+    <VersionPrefix>1.6.1</VersionPrefix>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MB.TinyRpc.Roslyn" Version="1.6.0" />

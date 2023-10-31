@@ -10,8 +10,8 @@ It also automatically starts the server when the client is instantiated and it a
 
 Type | .NET | Windows C++
 -|-|-
-Server|:white_check_mark:|:x:
-Client|:white_check_mark:|:white_check_mark:
+Server|✅|❌
+Client|✅|✅
 
 ## Common interface definition
 
