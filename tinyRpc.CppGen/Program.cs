@@ -25,7 +25,7 @@ if (string.IsNullOrWhiteSpace(inputProjectPath) || inputClassNames is null || st
 // load the project
 MSBuildLocator.RegisterDefaults();
 var project = await MSBuildWorkspace.Create().OpenProjectAsync(inputProjectPath);
-project = project.AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+//project = project.AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 if (await project.GetCompilationAsync() is not { } compilation) return;
 
 // output stream
@@ -284,7 +284,6 @@ static string CsToCppType(ITypeSymbol typeSymbol) => typeSymbol.ToFullyQualified
     "global::System.Double" => "double",
     "global::System.String" => "std::string",
     "global::System.DateTime" => "std::chrono::system_clock::time_point",
-    "DateTime" => "std::chrono::system_clock::time_point",
     "global::System.Void" => "void",
     _ => throw new NotImplementedException($"Could not get C++ type for {typeSymbol.ToFullyQualifiedString()}")
 };

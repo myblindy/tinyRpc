@@ -2,7 +2,7 @@
   "profiles": {
     "tinyRpc.CppGen": {
       "commandName": "Project",
-      "commandLineArgs": "--input-project-path \"E:\\gitrepos\\tinyRpc\\SampleClient\\SampleClient.csproj\" --input-class-names \"SampleShared.IServer\" --output-path \"E:\\gitrepos\\tinyRpc\\CppTest\\out.h\" --output-class-names \"TinyRpcServer\""
+      "commandLineArgs": "--input-project-path \"C:\\Users\\miteam\\source\\repos\\tinyRpc\\SampleClient\\SampleClient.csproj\" --input-class-names \"SampleShared.IServer\" --output-path \"C:\\Users\\miteam\\source\\repos\\tinyRpc\\CppTest\\TinyRpcServer.h\" --output-class-names \"TinyRpcServer\""
     }
   }
 }
