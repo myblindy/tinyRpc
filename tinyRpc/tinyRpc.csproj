@@ -16,15 +16,15 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</Description>
 
-    <VersionPrefix>1.6.1</VersionPrefix>
+    <VersionPrefix>1.7.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="../README.md" Pack="true" PackagePath="\"/>
+    <None Include="../README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MB.TinyRpc.Roslyn" Version="1.6.0" />
+    <PackageReference Include="MB.TinyRpc.Roslyn" Version="1.7.0" Condition="'$(Configuration)' == 'Release'" />
     <PackageReference Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
     <PackageReference Include="Overby.Extensions.AsyncBinaryReaderWriter" Version="1.0.39" />
   </ItemGroup>

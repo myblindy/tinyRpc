@@ -33,14 +33,14 @@ class ServerSourceGen : IIncrementalGenerator
                                 this.serverHandler = serverHandler;
                             }
 
-                            {{string.Join("\n", serverType.Events.Select(e => $$"""
+                            {{string.Join("\n", serverType.Events.Select((e, eIdx) => $$"""
                                 public async Task Fire{{e.Name}}({{string.Join(", ", e.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}})
                                 {
                                     await connectedEvent.WaitAsync().ConfigureAwait(false);
                                     using (await writeMonitor.EnterAsync().ConfigureAwait(false))
                                     {
-                                        await writer.WriteAsync((byte)1).ConfigureAwait(false);     // event data
-                                        await writer.WriteAsync("{{e.Name}}").ConfigureAwait(false);
+                                        await writer.WriteAsync((byte)1).ConfigureAwait(false);             // event data
+                                        await writer.WriteAsync((byte){{eIdx}}).ConfigureAwait(false);      // {{e.Name}}
                                         {{string.Join("\n", e.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
                                         await writer.FlushAsync().ConfigureAwait(false);
                                     }
@@ -51,16 +51,15 @@ class ServerSourceGen : IIncrementalGenerator
                             {
                                 try
                                 {
-
-                                await pipe.ConnectAsync(ct).ConfigureAwait(false);
+                                    await pipe.ConnectAsync(ct).ConfigureAwait(false);
                                     connectedEvent.Set();
 
                                     while (!ct.IsCancellationRequested)
                                     {
-                                        var name = await reader.ReadStringAsync().ConfigureAwait(false);
+                                        var mIdx = await reader.ReadByteAsync().ConfigureAwait(false);
 
-                                        {{string.Join("\n", serverType.Methods.Select(m => $$"""
-                                            if (name == "{{m.Name}}")
+                                        {{string.Join("\n", serverType.Methods.Select((m, mIdx) => $$"""
+                                            if (mIdx == {{mIdx}})     // {{m.Name}}
                                             {
                                                 {{(m.ReturnType.IsVoid() ? null : "var result = ")}}
                                                 serverHandler.{{m.Name}} ({{string.Join(", ", m.Parameters.Select(p =>

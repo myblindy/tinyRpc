@@ -22,14 +22,16 @@ public class SCType(string? @namespace, string name, IEnumerable<SCMethodType> m
 {
     public string? Namespace { get; } = @namespace;
     public string Name { get; } = name;
-    public ImmutableArray<SCMethodType> Methods { get; } = methods.ToImmutableArray();
-    public ImmutableArray<SCEventType> Events { get; } = events.ToImmutableArray();
+    public ImmutableArray<SCMethodType> Methods { get; } =
+        methods.OrderBy(m => m.Name).ThenBy(m => m.Parameters.Length).ToImmutableArray();
+    public ImmutableArray<SCEventType> Events { get; } =
+        events.OrderBy(e => e.Name).ThenBy(e => e.Parameters.Length).ToImmutableArray();
     public INamedTypeSymbol ServerSymbol { get; } = serverSymbol;
 }
 
 public static class Utils
 {
-    public static SCType? GetSyntaxClassDeclarations(this TypeDeclarationSyntax tds, 
+    public static SCType? GetSyntaxClassDeclarations(this TypeDeclarationSyntax tds,
         IEnumerable<AttributeData> attributes, SemanticModel semanticModel)
     {
         if (attributes.First().ConstructorArguments.FirstOrDefault() is { } serverType

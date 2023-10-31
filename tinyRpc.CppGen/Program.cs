@@ -25,7 +25,14 @@ if (string.IsNullOrWhiteSpace(inputProjectPath) || inputClassNames is null || st
 // load the project
 MSBuildLocator.RegisterDefaults();
 var project = await MSBuildWorkspace.Create().OpenProjectAsync(inputProjectPath);
-//project = project.AddMetadataReference(MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
+
+void addReference(string path)
+{
+    if (!project!.MetadataReferences.Any(r => Path.GetFileName(r.Display) == Path.GetFileName(path)))
+        project = project!.AddMetadataReference(MetadataReference.CreateFromFile(path));
+}
+
+addReference(typeof(object).Assembly.Location);
 if (await project.GetCompilationAsync() is not { } compilation) return;
 
 // output stream
@@ -49,9 +56,10 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
     if (compilation.GetTypeByMetadataName(inputClassName) is { } classSymbol
         && compilation.GetSemanticModel(classSymbol.DeclaringSyntaxReferences[0].SyntaxTree) is { } semanticModel)
     {
-        var events = classSymbol.GetMembers().OfType<IEventSymbol>().ToList();
+        var events = classSymbol.GetMembers().OfType<IEventSymbol>().OrderBy(e => e.Name).ToList();
         var methods = classSymbol.GetMembers().OfType<IMethodSymbol>()
             .Where(m => !events.Any(e => m.Name == $"add_{e.Name}" || m.Name == $"remove_{e.Name}"))
+            .OrderBy(m => m.Name).ThenBy(m => m.Parameters.Length)
             .ToList();
 
         outputStream.WriteLine($$"""
@@ -109,22 +117,24 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             	{
             		while (!listenerThread->get_stop_token().stop_requested())
             		{
-            			auto methodId = ReadNext<std::string>();
+            			auto methodIdx = ReadNext<uint8_t>();
 
-                        {{string.Join("\n", methods.Select(m => $$"""
-                            if(methodId == "{{m.Name}}")
+                        {{string.Join("\n", methods.Select((m, mIdx) => $$"""
+                            if(methodIdx == {{mIdx}})       // "{{m.Name}}"
                             {
                                 {{string.Join("\n", m.Parameters.Select((p, pIdx) => $$"""
                                     auto p{{pIdx}} = ReadNext<{{CsToCppType(p.Type)}}>();
                                     """))}}
                                 {{(m.ReturnsVoid ? null : "auto result = ")}}
                                 {{m.Name}}({{string.Join(", ", Enumerable.Range(0, m.Parameters.Length).Select(i => $"p{i}"))}});
-                                {{(m.ReturnsVoid ? null : $"""
-                                    EnterCriticalSection(&writeCriticalSection);
-                                    Write((uint8_t)0);     // data
+                                {{(m.ReturnsVoid ? null : $$"""
+                                    {{(events.Count == 0 ? "null" : """
+                                        EnterCriticalSection(&writeCriticalSection);
+                                        Write((uint8_t)0);     // data
+                                        """)}}
                                     Write(result);
                                     FlushFileBuffers(hPipe);
-                                    LeaveCriticalSection(&writeCriticalSection);
+                                    {{(events.Count == 0 ? null : "LeaveCriticalSection(&writeCriticalSection);")}}
                                     """)}}
                             }
                             """))}}
@@ -230,7 +240,7 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             		if (hPipe == INVALID_HANDLE_VALUE) exit(2);
 
             		// start the listener thread
-                    InitializeCriticalSection(&writeCriticalSection);
+                    {{(events.Count == 0 ? null : "InitializeCriticalSection(&writeCriticalSection);")}}
             		listenerThread = std::make_unique<std::jthread>(&{{outputClassName}}::ListenHandler, this);
             	}
 
@@ -241,13 +251,13 @@ foreach (var (inputClassName, outputClassName) in inputClassNames.Zip(outputClas
             		CloseHandle(hPipe);
             	}
 
-                {{string.Join("\n", events.Select(e => $$"""
+                {{string.Join("\n", events.Select((e, eIdx) => $$"""
                     void Fire{{e.Name}}({{string.Join(", ", (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
                         .Select(p => $"{CsToCppType(p.Type)} {p.Name}") ?? Array.Empty<string>())}})
                     {
                         EnterCriticalSection(&writeCriticalSection);
                         Write((uint8_t)1);     // event data
-                        Write(std::string("{{e.Name}}"));
+                        Write((uint8_t){{eIdx}});     //{{e.Name}}
                         {{string.Join("\n", (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters
                             .Select(p => $"Write({p.Name});") ?? Array.Empty<string>())}}
                         FlushFileBuffers(hPipe);

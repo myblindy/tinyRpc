@@ -50,9 +50,9 @@ class ClientSourceGen : IIncrementalGenerator
                                         else if(type == 1)
                                         {
                                             // event
-                                            var name = await reader.ReadStringAsync().ConfigureAwait(false);
-                                            {{string.Join("\n", clientType.Events.Select(e => $$"""
-                                                if(name == "{{e.Name}}") 
+                                            var eventIdx = await reader.ReadByteAsync().ConfigureAwait(false);
+                                            {{string.Join("\n", clientType.Events.Select((e, eIdx) => $$"""
+                                                if(eventIdx == {{eIdx}})        // {{e.Name}}
                                                     {{e.Name}}?.Invoke({{string.Join(", ", e.Parameters.Select(p => p.Type.GetBinaryReaderCall()))}});
                                                 """))}}
                                         }
@@ -65,14 +65,14 @@ class ClientSourceGen : IIncrementalGenerator
                                 public event {{e.Name}}Delegate {{e.Name}};
                                 """))}}
 
-                            {{string.Join("\n", clientType.Methods.Select(m => $$"""
+                            {{string.Join("\n", clientType.Methods.Select((m, mIdx) => $$"""
                                 public async Task{{(m.ReturnType.IsVoid() ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}} {{m.Name}}Async({{string.Join(", ",
                                     m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}}) 
                                 {
                                     await connectedEvent.WaitAsync().ConfigureAwait(false);
                                     using (await callMonitor.EnterAsync().ConfigureAwait(false))
                                     {
-                                        await writer.WriteAsync("{{m.Name}}").ConfigureAwait(false);
+                                        await writer.WriteAsync((byte){{mIdx}}).ConfigureAwait(false); // {{m.Name}}
                                         {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
                                         await writer.FlushAsync().ConfigureAwait(false);
 
