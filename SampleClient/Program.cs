@@ -12,8 +12,8 @@ static class Program
 {
     static async Task Main()
     {
-        using var client = new MyRpcClient(@"../../../../SampleServer/bin/Debug/net7.0/SampleServer.exe", CancellationToken.None);
-        //using var client = new MyRpcClient(@"../../../../x64/Debug/CppTest.exe", CancellationToken.None);
+        //using var client = new MyRpcClient(@"../../../../SampleServer/bin/Debug/net7.0/SampleServer.exe", CancellationToken.None);
+        using var client = new MyRpcClient(@"../../../../x64/Debug/CppTest.exe", CancellationToken.None);
         client.OnData += (d, s) => Console.WriteLine($"[SERVER] OnData: {d} {s}");
 
         await Task.WhenAll(

@@ -39,9 +39,13 @@ public:
 		return std::vector<std::tuple<uint32_t, int64_t, std::chrono::system_clock::time_point, double>>
 		{
 			std::make_tuple(1, 2, std::chrono::system_clock::now(), 3.14),
-				std::make_tuple(4, 5, std::chrono::system_clock::now() - 10s, 6.28),
-				std::make_tuple(7, 8, std::chrono::system_clock::now() + 10s, 9.42),
+			std::make_tuple(4, 5, std::chrono::system_clock::now() - 10s, 6.28),
+			std::make_tuple(7, 8, std::chrono::system_clock::now() + 10s, 9.42),
 		};
+	}
+	E GetNewE(E input)
+	{
+		return (E)((int)input + 1 % 4);
 	}
 };
 

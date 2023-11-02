@@ -17,6 +17,8 @@ class ServerHandler : IServer
     public void FancyHi(string name, int age) =>
         Console.WriteLine($"Fancy hi, {age} years old {name}!");
 
+    public E GetNewE(E input) => input is E.D ? E.A : input + 1;
+
     public (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult() => new[]
     {
         (1U, 15, DateTime.Now, 35.0),

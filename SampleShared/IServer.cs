@@ -2,6 +2,8 @@
 
 namespace SampleShared;
 
+enum E { A, B, C, D }
+
 internal interface IServer
 {
     void Hi();
@@ -10,6 +12,7 @@ internal interface IServer
     byte[] BufferCall(byte[] baseUtf8String, int n);
     (int a, int b, short c, byte[] utf8) GetValueTupleResult(string s);
     (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult();
+    E GetNewE(E input);
 
     event Action<double, string> OnData;
 }

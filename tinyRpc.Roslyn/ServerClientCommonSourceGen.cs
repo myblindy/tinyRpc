@@ -76,6 +76,11 @@ public static class Utils
     {
         _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
             p.Type.GetBinaryReaderCall()))})",
+        "global::System.Byte[]" => "await reader.ReadBytesAsync(await reader.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
+        _ when type is IArrayTypeSymbol arrayTypeSymbol =>
+            $"await reader.ReadArray(async reader => {arrayTypeSymbol.ElementType.GetBinaryReaderCall()})",
+        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol =>
+            $"({type.ToFullyQualifiedString()})({enumNamedTypeSymbol.EnumUnderlyingType.GetBinaryReaderCall()})",
         "global::System.String" => "await reader.ReadStringAsync().ConfigureAwait(false)",
         "global::System.Boolean" => "await reader.ReadBooleanAsync().ConfigureAwait(false)",
         "global::System.Int16" => "await reader.ReadInt16Async().ConfigureAwait(false)",
@@ -86,9 +91,6 @@ public static class Utils
         "global::System.UInt64" => "await reader.ReadUInt64Async().ConfigureAwait(false)",
         "global::System.Double" => "await reader.ReadDoubleAsync().ConfigureAwait(false)",
         "global::System.DateTime" => "new System.DateTime(await reader.ReadInt64Async().ConfigureAwait(false))",
-        "global::System.Byte[]" => "await reader.ReadBytesAsync(await reader.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
-        _ when type is IArrayTypeSymbol arrayTypeSymbol =>
-            $"await reader.ReadArray(async reader => {arrayTypeSymbol.ElementType.GetBinaryReaderCall()})",
         _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.ToFullyQualifiedString()}")
     };
 
@@ -96,15 +98,17 @@ public static class Utils
     {
         _ when type.IsTupleType =>
             string.Join("\n", ((INamedTypeSymbol)type).TupleElements.Select(p => p.Type.GetBinaryWriterCall($"{name}.{p.Name}"))),
+        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol =>
+            $"await writer.WriteAsync(({enumNamedTypeSymbol.EnumUnderlyingType.ToFullyQualifiedString()}){name}).ConfigureAwait(false);",
         "global::System.Byte[]" => $$"""
             await writer.WriteAsync({{name}}.Length).ConfigureAwait(false);
             await writer.WriteAsync({{name}}).ConfigureAwait(false);
             """,
         _ when type is IArrayTypeSymbol arrayTypeSymbol => $$"""
             await writer.WriteAsync({{name}}.Length).ConfigureAwait(false);
-            foreach(var _element{{type.GetHashCode():X}} in {{name}})
+            foreach(var _element{{SymbolEqualityComparer.Default.GetHashCode(type):X}} in {{name}})
             {
-                {{arrayTypeSymbol.ElementType.GetBinaryWriterCall($"_element{type.GetHashCode():X}")}}
+                {{arrayTypeSymbol.ElementType.GetBinaryWriterCall($"_element{SymbolEqualityComparer.Default.GetHashCode(type):X}")}}
             }
             """,
         "global::System.DateTime" => $"await writer.WriteAsync({name}.Ticks).ConfigureAwait(false);",
