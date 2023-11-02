@@ -25,14 +25,6 @@ if (string.IsNullOrWhiteSpace(inputProjectPath) || inputClassNames is null || st
 // load the project
 MSBuildLocator.RegisterDefaults();
 var project = await MSBuildWorkspace.Create().OpenProjectAsync(inputProjectPath);
-
-void addReference(string path)
-{
-    if (!project!.MetadataReferences.Any(r => Path.GetFileName(r.Display) == Path.GetFileName(path)))
-        project = project!.AddMetadataReference(MetadataReference.CreateFromFile(path));
-}
-
-addReference(typeof(object).Assembly.Location);
 if (await project.GetCompilationAsync() is not { } compilation) return;
 
 // output stream
