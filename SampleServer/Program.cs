@@ -19,6 +19,14 @@ class ServerHandler : IServer
 
     public E GetNewE(E input) => input is E.D ? E.A : input + 1;
 
+    public S2 GetStruct(int a, S1 s, double b) =>
+        new()
+        {
+            c = $"a={a} s.a={s.a} s.b={s.b} s.S11.a={s.S11.a} b={b}",
+            d = 514546,
+            S22 = new() { a = 123 }
+        };
+
     public (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult() => new[]
     {
         (1U, 15, DateTime.Now, 35.0),

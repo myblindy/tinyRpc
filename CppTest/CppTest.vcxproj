@@ -115,7 +115,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>"$(ProjectDir)TinyRpcCppGen\tinyRpc.CppGen.exe" --input-project-path "$(SolutionDir)SampleClient\SampleClient.csproj" --input-class-names "SampleShared.IServer" --output-path "$(ProjectDir)TinyRpcServer.h" --output-class-names "TinyRpcServer"</Command>
+      <Command>"$(ProjectDir)..\tinyRpc.CppGen\bin\debug\net7.0\tinyRpc.CppGen.exe" --input-project-path "$(SolutionDir)SampleClient\SampleClient.csproj" --input-class-names "SampleShared.IServer" --output-path "$(ProjectDir)TinyRpcServer.h" --output-class-names "TinyRpcServer"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -134,6 +134,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>"$(ProjectDir)TinyRpcCppGen\tinyRpc.CppGen.exe" --input-project-path "$(SolutionDir)SampleClient\SampleClient.csproj" --input-class-names "SampleShared.IServer" --output-path "$(ProjectDir)TinyRpcServer.h" --output-class-names "TinyRpcServer"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

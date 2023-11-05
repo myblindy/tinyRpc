@@ -5,10 +5,10 @@ using System.Collections.Immutable;
 
 namespace TinyRpc.Roslyn;
 
-public class SCMethodType(string name, ITypeSymbol returnType, IEnumerable<(string Name, ITypeSymbol Type)>? parameters)
+public class SCMethodType(string name, ITypeSymbol? returnType, IEnumerable<(string Name, ITypeSymbol Type)>? parameters)
 {
     public string Name { get; } = name;
-    public ITypeSymbol ReturnType { get; } = returnType;
+    public ITypeSymbol? ReturnType { get; } = returnType;
     public ImmutableArray<(string Name, ITypeSymbol Type)> Parameters { get; } = parameters?.ToImmutableArray() ?? new();
 }
 
@@ -45,7 +45,7 @@ public static class Utils
                 tds.Identifier.Text,
                 serverNamedTypeSymbol.GetMembers().OfType<IMethodSymbol>()
                     .Where(s => s.Name.FirstOrDefault() is not '.' && !events.Any(e => s.Name == $"add_{e.Name}" || s.Name == $"remove_{e.Name}"))
-                    .Select(s => new SCMethodType(s.Name, s.ReturnType, s.Parameters.Select(p => (p.Name, p.Type)))),
+                    .Select(s => new SCMethodType(s.Name, s.ReturnsVoid ? null : s.ReturnType, s.Parameters.Select(p => (p.Name, p.Type)))),
                 events.Select(e => new SCEventType(e.Name,
                     (e.Type as INamedTypeSymbol)?.DelegateInvokeMethod?.Parameters.Select(ep => (ep.Name, ep.Type)))),
                 serverNamedTypeSymbol);
@@ -83,6 +83,8 @@ public static class Utils
             $"({type.ToFullyQualifiedString()})({enumNamedTypeSymbol.EnumUnderlyingType.GetBinaryReaderCall()})",
         "global::System.String" => "await reader.ReadStringAsync().ConfigureAwait(false)",
         "global::System.Boolean" => "await reader.ReadBooleanAsync().ConfigureAwait(false)",
+        "global::System.Byte" => "await reader.ReadByteAsync().ConfigureAwait(false)",
+        "global::System.SByte" => "await reader.ReadSByteAsync().ConfigureAwait(false)",
         "global::System.Int16" => "await reader.ReadInt16Async().ConfigureAwait(false)",
         "global::System.UInt16" => "await reader.ReadUInt16Async().ConfigureAwait(false)",
         "global::System.Int32" => "await reader.ReadInt32Async().ConfigureAwait(false)",
@@ -91,7 +93,14 @@ public static class Utils
         "global::System.UInt64" => "await reader.ReadUInt64Async().ConfigureAwait(false)",
         "global::System.Double" => "await reader.ReadDoubleAsync().ConfigureAwait(false)",
         "global::System.DateTime" => "new System.DateTime(await reader.ReadInt64Async().ConfigureAwait(false))",
-        _ => throw new NotImplementedException($"Could not deduce binary reader function name for {type.ToFullyQualifiedString()}")
+        _ => $$"""
+            new {{type.ToFullyQualifiedString()}} 
+            { 
+                {{string.Join(", ", type.GetMembers()
+                    .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
+                    .Select(m => $"{m.Name} = {((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type).GetBinaryReaderCall()}"))}}
+            } 
+            """
     };
 
     public static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
@@ -112,9 +121,14 @@ public static class Utils
             }
             """,
         "global::System.DateTime" => $"await writer.WriteAsync({name}.Ticks).ConfigureAwait(false);",
-        _ => $"await writer.WriteAsync({name}).ConfigureAwait(false);"
+        "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
+                or "global::System.Int16" or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32"
+                or "global::System.Int64" or "global::System.UInt64" or "global::System.Double" or "global::System.DateTime" =>
+            $"await writer.WriteAsync({name}).ConfigureAwait(false);",
+        _ => $$"""
+            {{string.Join("\n", type.GetMembers()
+                .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
+                .Select(m => ((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type).GetBinaryWriterCall($"{name}.{m.Name}")))}}
+            """
     };
-
-    public static bool IsVoid(this ITypeSymbol type) =>
-        type.ToFullyQualifiedString() is "global::System.Void";
 }
