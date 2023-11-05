@@ -12,8 +12,8 @@ static class Program
 {
     static async Task Main()
     {
-        //using var client = new MyRpcClient(@"../../../../SampleServer/bin/Debug/net7.0/SampleServer.exe", CancellationToken.None);
-        using var client = new MyRpcClient(@"../../../../x64/Debug/CppTest.exe", CancellationToken.None);
+        using var client = new MyRpcClient(@"../../../../SampleServer/bin/Debug/net7.0/SampleServer.exe", CancellationToken.None);
+        //using var client = new MyRpcClient(@"../../../../x64/Debug/CppTest.exe", CancellationToken.None);
         client.OnData += (d, s) => Console.WriteLine($"[SERVER] OnData: {d} {s}");
 
         await Task.WhenAll(
@@ -26,6 +26,9 @@ static class Program
             await client.BufferCallAsync(Encoding.UTF8.GetBytes("arf arf"), 10))}");
 
         await Task.Delay(TimeSpan.FromSeconds(2));
+
+        var s2 = await client.GetStructAsync(12, new() { a = 15, b = "b", S11 = new() { a = 49859485 } }, 3.1415);
+        Console.WriteLine($"[CLIENT] GetStructAsync: c={s2.c} d={s2.d} S22.a={s2.S22.a}");
 
         var (a, b, c, utf8) = await client.GetValueTupleResultAsync("120 150 1000 plain ol string");
         Console.WriteLine($"[CLIENT] GetValueTupleResultAsync: a={a} b={b} c={c} utf8={Encoding.UTF8.GetString(utf8)}");

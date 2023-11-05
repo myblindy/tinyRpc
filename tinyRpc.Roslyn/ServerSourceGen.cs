@@ -61,11 +61,11 @@ class ServerSourceGen : IIncrementalGenerator
                                         {{string.Join("\n", serverType.Methods.Select((m, mIdx) => $$"""
                                             if (mIdx == {{mIdx}})     // {{m.Name}}
                                             {
-                                                {{(m.ReturnType.IsVoid() ? null : "var result = ")}}
+                                                {{(m.ReturnType is null ? null : "var result = ")}}
                                                 serverHandler.{{m.Name}} ({{string.Join(", ", m.Parameters.Select(p =>
                                                     p.Type.GetBinaryReaderCall()))}});
 
-                                                {{(m.ReturnType.IsVoid() ? null : $$"""
+                                                {{(m.ReturnType is null ? null : $$"""
                                                     // return the result
                                                     {{(serverType.Events.Length > 0 ? "using (await writeMonitor.EnterAsync().ConfigureAwait(false))" : null)}}
                                                     {
