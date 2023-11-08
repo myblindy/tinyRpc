@@ -1,10 +1,6 @@
 ﻿using Overby.Extensions.AsyncBinaryReaderWriter;
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Text;
 
-namespace TinyRpc;
+namespace tinyRpc.Support;
 
 public static class TinyRpcExtensions
 {
