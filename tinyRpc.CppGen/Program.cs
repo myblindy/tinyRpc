@@ -125,7 +125,8 @@ internal class Program
                                             auto p{{pIdx}} = ReadNext<{{CsToCppType(p.Type)}}>();
                                             """))}}
                                         {{(m.ReturnsVoid ? null : "auto result = ")}}
-                                        {{m.Name}}({{string.Join(", ", Enumerable.Range(0, m.Parameters.Length).Select(i => $"p{i}"))}});
+                                        {{m.Name}}({{string.Join(", ", Enumerable.Range(0, m.Parameters.Length)
+                                            .Select(i => CsToCppType(m.Parameters[i].Type).StartsWith("std::unique_ptr<") ? $"std::move(p{i})" : $"p{i}"))}});
                                         {{(m.ReturnsVoid ? null : $$"""
                                             {{(events.Count == 0 ? "null" : """
                                                 EnterCriticalSection(&writeCriticalSection);
@@ -186,17 +187,31 @@ internal class Program
                             // Construct a system_clock::time_point by adding the duration to the epoch
                             return std::chrono::system_clock::from_time_t(0) + duration_cast<std::chrono::system_clock::duration>(ns);
                         }
+
+                        {{string.Join("\n", requiredCppTypeSymbols.Select(s => s is { EnumUnderlyingType: not null } ? null
+                            : $$"""
+                                // read {{s.Name}} struct
+                                template<>
+                                {{CsToCppType(s)}} ReadNext<{{CsToCppType(s)}}>()
+                                {
+                                    auto result = std::make_unique<{{CsToCppType(s, true)}}>();
+                                    {{string.Join("\n", s.GetMembers()
+                                        .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
+                                        .Select(m => $"result->{m.Name} = ReadNext<{CsToCppType(((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type))}>();"))}}
+                                    return result;
+                                }
+                                """))}}
                     #pragma endregion
                     
                     #pragma region Write Functions
                         template<typename T>
-                        void Write(const T& value)
+                        void Write(const T& value) const
                         {
                             WriteFile(hPipe, &value, sizeof(T), nullptr, nullptr);
                         }
                     
                         template<>
-                        void Write(const std::string& value)
+                        void Write(const std::string& value) const
                         {
                             auto len = static_cast<uint8_t>(value.size());
                             Write(len);
@@ -204,7 +219,7 @@ internal class Program
                         }
                     
                         template<typename TValue>
-                        void Write(const std::vector<TValue>& value)
+                        void Write(const std::vector<TValue>& value) const
                         {
                             Write(static_cast<uint32_t>(value.size()));
                             for (const auto& item : value)
@@ -212,12 +227,12 @@ internal class Program
                         }
                     
                         template<typename... TValues>
-                        void Write(const std::tuple<TValues...>& value)
+                        void Write(const std::tuple<TValues...>& value) const
                         {
                             std::apply([&](auto&&... args) { (Write(args), ...); }, value);
                         }
                     
-                        void Write(const std::chrono::system_clock::time_point& value)
+                        void Write(const std::chrono::system_clock::time_point& value) const
                         {
                             // convert value to .NET ticks
                             auto duration = value.time_since_epoch();
@@ -226,7 +241,18 @@ internal class Program
                     
                             Write(ticks);
                         }
-                    #pragma endregion
+
+                        {{string.Join("\n", requiredCppTypeSymbols.Select(s => s is { EnumUnderlyingType: not null } ? null
+                            : $$"""
+                                // write {{s.Name}} struct
+                                {{CsToCppType(s)}} Write(const {{CsToCppType(s)}}& value) const
+                                {
+                                    {{string.Join("\n", s.GetMembers()
+                                        .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
+                                        .Select(m => $"Write(value->{m.Name});"))}}
+                                }
+                                """))}}
+                        #pragma endregion
                     
                     public:
                         {{outputClassName}}(int argc, char** argv)
@@ -265,26 +291,42 @@ internal class Program
                             """))}}
 
                         {{string.Join("\n", methods.Select(m => $$"""
-                            virtual {{CsToCppType(m.ReturnType)}} {{m.Name}}({{string.Join(", ",
-                                        m.Parameters.Select(p => $"{CsToCppType(p.Type)} {p.Name}"))}}) = 0;
+                            virtual {{CsToCppType(m.ReturnType, true)}} {{m.Name}}({{string.Join(", ",
+                                m.Parameters.Select(p => $"{CsToCppType(p.Type)} {p.Name}"))}}) = 0;
                             """))}}
                     };
 
                     #pragma warning( pop )
                     """);
 
-                // put the enums at the beginning
+                // forward declare the enums and classes
                 sb.Replace("%%", $$"""
-                    {{string.Join("\n", requiredEnumTypeSymbols.Select(e => $$"""
-                        enum class {{e.Name}} : {{CsToCppType(e.EnumUnderlyingType!)}}
-                        {
-                            {{string.Join(",\n", e.GetMembers()
-                                .Where(m => m.Kind is SymbolKind.Field && m is IFieldSymbol { HasConstantValue: true })
-                                .Select(m => $$"""
-                                    {{m.Name}} = {{((IFieldSymbol)m).ConstantValue}}
-                                    """))}}
-                        };
-                        """))}}
+                    // forward declares for supporting types
+                    {{string.Join("\n", requiredCppTypeSymbols.Select(s => s is { EnumUnderlyingType: not null }
+                        ? $"enum class {s.Name} : {CsToCppType(s.EnumUnderlyingType!)};"
+                        : $"struct {s.Name};"))}}
+
+                    // supporting types
+                    {{string.Join("\n", requiredCppTypeSymbols.Select(s => s is { EnumUnderlyingType: not null }
+                        ? $$"""
+                            enum class {{s.Name}} : {{CsToCppType(s.EnumUnderlyingType!)}}
+                            {
+                                {{string.Join(",\n", s.GetMembers()
+                                    .Where(m => m.Kind is SymbolKind.Field && m is IFieldSymbol { HasConstantValue: true })
+                                    .Select(m => $$"""
+                                        {{m.Name}} = {{((IFieldSymbol)m).ConstantValue}}
+                                        """))}}
+                            };
+                            """
+                        : $$"""
+                            struct {{s.Name}}
+                            {
+                                {{string.Join("\n", s.GetMembers()
+                                    .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
+                                    .Select(m => $"{CsToCppType(((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type))} {m.Name};"))}}
+                            };
+                            """))}}
+
                     """);
 
                 // read the existing file and compare the contents with our generated content, to not touch existing, up to date files
@@ -301,16 +343,16 @@ internal class Program
             }
     }
 
-    static readonly HashSet<INamedTypeSymbol> requiredEnumTypeSymbols = new(SymbolEqualityComparer.Default);
-    static string CsToCppType(ITypeSymbol typeSymbol)
+    static readonly HashSet<INamedTypeSymbol> requiredCppTypeSymbols = new(SymbolEqualityComparer.Default);
+    static string CsToCppType(ITypeSymbol typeSymbol, bool doNotUseUniquePtrQualifier = false)
     {
         if (typeSymbol is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol)
         {
-            requiredEnumTypeSymbols.Add(enumNamedTypeSymbol);
+            requiredCppTypeSymbols.Add(enumNamedTypeSymbol);
             return enumNamedTypeSymbol.Name;
         }
 
-        return typeSymbol.ToFullyQualifiedString() switch
+        var cppTypeName = typeSymbol.ToFullyQualifiedString() switch
         {
             _ when typeSymbol is IArrayTypeSymbol arrayTypeSymbol =>
                 $"std::vector<{CsToCppType(arrayTypeSymbol.ElementType)}>",
@@ -330,7 +372,36 @@ internal class Program
             "global::System.String" => "std::string",
             "global::System.DateTime" => "std::chrono::system_clock::time_point",
             "global::System.Void" => "void",
-            _ => throw new NotImplementedException($"Could not get C++ type for {typeSymbol.ToFullyQualifiedString()}")
+            _ => null
         };
+
+        if (cppTypeName is null && typeSymbol is INamedTypeSymbol namedTypeSymbol)
+        {
+            static void addNestedRequiredCppTypes(INamedTypeSymbol s)
+            {
+                // ugly, check for known types
+                if (s.ToFullyQualifiedString() is "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
+                    or "global::System.Int16" or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32"
+                    or "global::System.Int64" or "global::System.UInt64" or "global::System.Single" or "global::System.Double"
+                    or "global::System.String" or "global::System.DateTime" or "global::System.Void")
+                {
+                    return;
+                }
+
+                if (requiredCppTypeSymbols.Add(s))
+                    foreach (var t in s.GetMembers()
+                        .Select(m => ((m as IFieldSymbol)?.Type ?? (m as IPropertySymbol)?.Type) as INamedTypeSymbol)
+                        .Where(t => t is not null))
+                    {
+                        addNestedRequiredCppTypes(t!);
+                    }
+            }
+
+            addNestedRequiredCppTypes(namedTypeSymbol);
+            return doNotUseUniquePtrQualifier ? namedTypeSymbol.Name : $"std::unique_ptr<{namedTypeSymbol.Name}>";
+        }
+
+        return cppTypeName
+            ?? throw new NotImplementedException($"Could not get C++ type for {typeSymbol.ToFullyQualifiedString()}");
     }
 }

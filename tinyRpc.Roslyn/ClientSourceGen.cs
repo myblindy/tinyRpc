@@ -66,7 +66,7 @@ class ClientSourceGen : IIncrementalGenerator
                                 """))}}
 
                             {{string.Join("\n", clientType.Methods.Select((m, mIdx) => $$"""
-                                public async Task{{(m.ReturnType.IsVoid() ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}} {{m.Name}}Async({{string.Join(", ",
+                                public async Task{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}} {{m.Name}}Async({{string.Join(", ",
                                     m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}}) 
                                 {
                                     await connectedEvent.WaitAsync().ConfigureAwait(false);
@@ -76,7 +76,7 @@ class ClientSourceGen : IIncrementalGenerator
                                         {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
                                         await writer.FlushAsync().ConfigureAwait(false);
 
-                                        {{(m.ReturnType.IsVoid() ? null : $$"""
+                                        {{(m.ReturnType is null ? null : $$"""
                                             // return type
                                             {{(clientType.Events.Length > 0 ? "await returnReadReadyEvent.WaitAsync().ConfigureAwait(false);" : null)}}
                                             var __result = {{m.ReturnType.GetBinaryReaderCall()}};
