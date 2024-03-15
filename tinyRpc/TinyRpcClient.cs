@@ -7,7 +7,7 @@ namespace TinyRpc;
 
 public class TinyRpcClient : IDisposable
 {
-    public Process ServerProcess { get; }
+    public Process? ServerProcess { get; }
     protected readonly NamedPipeServerStream pipe;
     protected readonly AsyncBinaryWriter writer;
     protected readonly AsyncBinaryReader reader;
@@ -31,6 +31,7 @@ public class TinyRpcClient : IDisposable
         }
         _ = waitForConnectionAsync();
 
+        // despite the method description, this CAN return null
         ServerProcess = Process.Start(new ProcessStartInfo(Path.GetFullPath(serverPath), clientId)
         {
             WorkingDirectory = Path.GetFullPath(Path.GetDirectoryName(serverPath))
@@ -52,8 +53,10 @@ public class TinyRpcClient : IDisposable
             reader.Dispose();
             writer.Dispose();
             pipe.Dispose();
-            try { ServerProcess.Kill(); } catch { }
-            ServerProcess.Dispose();
+
+            // the server process can be null
+            try { ServerProcess?.Kill(); } catch { }
+            ServerProcess?.Dispose();
 
             disposedValue = true;
         }

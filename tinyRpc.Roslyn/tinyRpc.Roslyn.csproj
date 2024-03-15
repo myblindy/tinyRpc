@@ -10,6 +10,7 @@
     <IsRoslynComponent>true</IsRoslynComponent>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
 
     <Authors>myblindy</Authors>
     <Company>MB</Company>
@@ -20,7 +21,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</Description>
 
-    <VersionPrefix>1.9.0</VersionPrefix>
+    <VersionPrefix>1.10.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

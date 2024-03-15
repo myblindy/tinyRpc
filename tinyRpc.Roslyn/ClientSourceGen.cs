@@ -17,6 +17,7 @@ class ClientSourceGen : IIncrementalGenerator
                 if (clientType is not null)
                     ctx.AddSource($"tinyRpc.{clientType.Name}Client.g.cs", SourceText.From($$"""
                         using TinyRpc;
+                        using TinyRpc.Support;
                         using System;
                         using System.Threading;
                         using System.Threading.Tasks;

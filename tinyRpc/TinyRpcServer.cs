@@ -39,6 +39,10 @@ public abstract class TinyRpcServer : IDisposable
             }
 
             // unmanaged
+            reader.Dispose();
+            writer.Dispose();
+            pipe.Dispose();
+
             disposedValue = true;
         }
     }

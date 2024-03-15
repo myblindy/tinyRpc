@@ -17,6 +17,7 @@ class ServerSourceGen : IIncrementalGenerator
                 if (serverType is not null)
                     ctx.AddSource($"tinyRpc.{serverType.Name}Server.g.cs", SourceText.From($$"""
                         using TinyRpc;
+                        using TinyRpc.Support;
                         using System;
                         using System.Threading;
                         using System.Threading.Tasks;
