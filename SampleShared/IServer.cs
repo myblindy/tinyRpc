@@ -20,6 +20,7 @@ internal interface IServer
     (int a, int b, short c, byte[] utf8) GetValueTupleResult(string s);
     (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult();
     E GetNewE(E input);
+    double? GetNullableValue(float? val);
 
     event Action<double, string> OnData;
 }

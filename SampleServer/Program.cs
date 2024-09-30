@@ -18,7 +18,7 @@ class ServerHandler : IServer
         Console.WriteLine($"Fancy hi, {age} years old {name}!");
 
     public E GetNewE(E input) => input is E.D ? E.A : input + 1;
-
+    public double? GetNullableValue(float? val) => val + 50;
     public S2 GetStruct(int a, S1 s, double b) =>
         new()
         {

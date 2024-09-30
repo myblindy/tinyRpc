@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Immutable;
+using System.Xml.Linq;
 
 namespace TinyRpc.Roslyn;
 
@@ -74,6 +75,8 @@ public static class Utils
 
     public static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
     {
+        _ when type.OriginalDefinition is INamedTypeSymbol nullableNamedTypeSymbol && nullableNamedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" && ((INamedTypeSymbol)type).TypeArguments.FirstOrDefault() is { } nullableTypeSymbol =>
+            $"await reader.ReadBooleanAsync().ConfigureAwait(false) ? {GetBinaryReaderCall(nullableTypeSymbol)} : new {type.ToFullyQualifiedString()}()",
         _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
             p.Type.GetBinaryReaderCall()))})",
         "global::System.Byte[]" => "await reader.ReadBytesAsync(await reader.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
@@ -92,6 +95,7 @@ public static class Utils
         "global::System.Int64" => "await reader.ReadInt64Async().ConfigureAwait(false)",
         "global::System.UInt64" => "await reader.ReadUInt64Async().ConfigureAwait(false)",
         "global::System.Double" => "await reader.ReadDoubleAsync().ConfigureAwait(false)",
+        "global::System.Single" => "await reader.ReadSingleAsync().ConfigureAwait(false)",
         "global::System.DateTime" => "new System.DateTime(await reader.ReadInt64Async().ConfigureAwait(false))",
         _ => $$"""
             new {{type.ToFullyQualifiedString()}} 
@@ -105,6 +109,11 @@ public static class Utils
 
     public static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
     {
+        _ when type.OriginalDefinition is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" => $$"""
+            await writer.WriteAsync({{name}}.HasValue);
+            if({{name}}.HasValue)
+                await writer.WriteAsync({{name}}.Value);
+            """,
         _ when type.IsTupleType =>
             string.Join("\n", ((INamedTypeSymbol)type).TupleElements.Select(p => p.Type.GetBinaryWriterCall($"{name}.{p.Name}"))),
         _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol =>
@@ -123,7 +132,7 @@ public static class Utils
         "global::System.DateTime" => $"await writer.WriteAsync({name}.Ticks).ConfigureAwait(false);",
         "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
                 or "global::System.Int16" or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32"
-                or "global::System.Int64" or "global::System.UInt64" or "global::System.Double" or "global::System.DateTime" =>
+                or "global::System.Int64" or "global::System.UInt64" or "global::System.Double" or "global::System.Single" or "global::System.DateTime" =>
             $"await writer.WriteAsync({name}).ConfigureAwait(false);",
         _ => $$"""
             {{string.Join("\n", type.GetMembers()
