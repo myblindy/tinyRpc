@@ -1,5 +1,6 @@
 ﻿using SampleShared;
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -42,19 +43,21 @@ class ServerHandler : IServer
     public void Hi() => Console.WriteLine("hi");
 }
 
-[TinyRpcServerClass(typeof(ServerHandler))]
+[TinyRpcServerClass(typeof(IServer))]
 partial class MyRpcServer { }
 
-static class Program
+static class ServerProgram
 {
     public static async Task Main(string[] args)
     {
-        using var rpcServer = new MyRpcServer(args, new(), CancellationToken.None);
+        if (await MyRpcServer.CreateAsync(args, new ServerHandler(), CancellationToken.None) is not { } rpcServer)
+            return;
 
-        while (rpcServer.Healthy)
-        {
-            await rpcServer.FireOnData(3.5, "marf - " + Random.Shared.Next());
-            await Task.Delay(100).ConfigureAwait(false);
-        }
+        using (rpcServer)
+            while (rpcServer.Healthy)
+            {
+                await rpcServer.FireOnData(3.5, "marf - " + Random.Shared.Next());
+                await Task.Delay(100).ConfigureAwait(false);
+            }
     }
 }

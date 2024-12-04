@@ -2,40 +2,31 @@
 using Overby.Extensions.AsyncBinaryReaderWriter;
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Net;
+using System.Net.Sockets;
 
 namespace TinyRpc;
 
-public class TinyRpcClient : IDisposable
+public abstract class TinyRpcClient : IDisposable
 {
-    public Process? ServerProcess { get; }
-    protected readonly NamedPipeServerStream pipe;
-    protected readonly AsyncBinaryWriter writer;
-    protected readonly AsyncBinaryReader reader;
+    protected readonly TcpListener tcpListener = new(IPAddress.Any, 0);
+    protected TcpClient? tcpClient;
+    protected NetworkStream? tcpStream;
+    protected AsyncBinaryWriter? writer;
+    protected AsyncBinaryReader? reader;
+
     protected readonly AsyncMonitor callMonitor = new();
     protected readonly AsyncMonitor readMonitor = new();
     protected readonly AsyncManualResetEvent returnReadReadyEvent = new();
     protected readonly AsyncAutoResetEvent returnReadCompletedEvent = new();
-    protected readonly AsyncManualResetEvent connectedEvent = new();
 
-    public TinyRpcClient(string serverPath, CancellationToken ct)
+    protected async Task ConnectAsync()
     {
-        var clientId = Guid.NewGuid().ToString();
-        pipe = new(clientId, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-        writer = new(pipe);
-        reader = new(pipe);
+        tcpClient = await tcpListener.AcceptTcpClientAsync();
+        tcpStream = tcpClient.GetStream();
 
-        async Task waitForConnectionAsync()
-        {
-            await pipe.WaitForConnectionAsync(ct).ConfigureAwait(false);
-            connectedEvent.Set();
-        }
-        _ = waitForConnectionAsync();
-
-        // despite the method description, this CAN return null
-        ServerProcess = Process.Start(new ProcessStartInfo(Path.GetFullPath(serverPath), clientId)
-        {
-            WorkingDirectory = Path.GetFullPath(Path.GetDirectoryName(serverPath))
-        });
+        writer = new(tcpStream);
+        reader = new(tcpStream);
     }
 
     #region IDisposable
@@ -50,13 +41,11 @@ public class TinyRpcClient : IDisposable
                 // managed
             }
 
-            reader.Dispose();
-            writer.Dispose();
-            pipe.Dispose();
-
-            // the server process can be null
-            try { ServerProcess?.Kill(); } catch { }
-            ServerProcess?.Dispose();
+            reader?.Dispose();
+            writer?.Dispose();
+            tcpStream?.Dispose();
+            tcpClient?.Dispose();
+            tcpListener.Stop();
 
             disposedValue = true;
         }

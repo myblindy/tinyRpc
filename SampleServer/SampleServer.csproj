@@ -2,17 +2,17 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MB.TinyRpc" Version="1.12.0" />
+    <!--<PackageReference Include="MB.TinyRpc" Version="1.12.0" />-->
   </ItemGroup>
 
   <ItemGroup>
-    <!--<ProjectReference Include="..\tinyRpc\tinyRpc.csproj" Condition="'$(Configuration)' != 'Release'" />
-    <ProjectReference Include="..\tinyRpc.Roslyn\tinyRpc.Roslyn.csproj" Condition="'$(Configuration)' != 'Release'" PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />-->
+    <ProjectReference Include="..\tinyRpc\tinyRpc.csproj" Condition="'$(Configuration)' != 'Release'" />
+    <ProjectReference Include="..\tinyRpc.Roslyn\tinyRpc.Roslyn.csproj" Condition="'$(Configuration)' != 'Release'" PrivateAssets="all" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <Import Project="..\SampleShared\SampleShared.projitems" Label="Shared" />
