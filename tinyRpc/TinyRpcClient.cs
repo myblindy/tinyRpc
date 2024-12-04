@@ -1,7 +1,5 @@
 ﻿using Nito.AsyncEx;
 using Overby.Extensions.AsyncBinaryReaderWriter;
-using System.Diagnostics;
-using System.IO.Pipes;
 using System.Net;
 using System.Net.Sockets;
 
