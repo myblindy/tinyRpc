@@ -1,5 +1,6 @@
 ﻿using SampleShared;
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -16,7 +17,6 @@ class ServerHandler : IServer
 
     public void FancyHi(string name, int age) =>
         Console.WriteLine($"Fancy hi, {age} years old {name}!");
-
     public E GetNewE(E input) => input is E.D ? E.A : input + 1;
     public double? GetNullableValue(float? val) => val + 50;
     public S2 GetStruct(int a, S1 s, double b) =>
@@ -34,6 +34,13 @@ class ServerHandler : IServer
         (uint.MinValue, long.MinValue, DateTime.MinValue, double.MaxValue)
     };
 
+    readonly byte[] largeArrayBuffer = new byte[1920 * 1080 * 4];
+    public byte[] GetLargeArray()
+    {
+        Random.Shared.NextBytes(largeArrayBuffer);
+        return largeArrayBuffer;
+    }
+
     public (int a, int b, short c, byte[] utf8) GetValueTupleResult(string s) =>
         Regex.Match(s, @"^(\d+) (\d+) (\d+) (.*)$") is not { Success: true } m ? default
             : (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value),
@@ -42,19 +49,21 @@ class ServerHandler : IServer
     public void Hi() => Console.WriteLine("hi");
 }
 
-[TinyRpcServerClass(typeof(ServerHandler))]
+[TinyRpcServerClass(typeof(IServer))]
 partial class MyRpcServer { }
 
-static class Program
+static class ServerProgram
 {
     public static async Task Main(string[] args)
     {
-        using var rpcServer = new MyRpcServer(args, new(), CancellationToken.None);
+        if (await MyRpcServer.CreateAsync(args, new ServerHandler(), CancellationToken.None) is not { } rpcServer)
+            return;
 
-        while (rpcServer.Healthy)
-        {
-            await rpcServer.FireOnData(3.5, "marf - " + Random.Shared.Next());
-            await Task.Delay(100).ConfigureAwait(false);
-        }
+        using (rpcServer)
+            while (rpcServer.Healthy)
+            {
+                await rpcServer.FireOnData(3.5, "marf - " + Random.Shared.Next());
+                await Task.Delay(100).ConfigureAwait(false);
+            }
     }
 }

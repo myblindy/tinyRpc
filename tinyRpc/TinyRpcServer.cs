@@ -1,28 +1,16 @@
 ﻿using Nito.AsyncEx;
-using Overby.Extensions.AsyncBinaryReaderWriter;
-using System.IO.Pipes;
+using System.Net.Sockets;
 
 namespace TinyRpc;
 
 public abstract class TinyRpcServer : IDisposable
 {
-    protected readonly NamedPipeClientStream pipe;
-    protected readonly AsyncBinaryReader reader;
-    protected readonly AsyncBinaryWriter writer;
+    protected TcpClient tcpClient = new();
+    protected NetworkStream? stream;
 
-    protected readonly AsyncManualResetEvent connectedEvent = new(false);
     protected readonly AsyncMonitor writeMonitor = new();
 
     public bool Healthy { get; protected set; } = true;
-
-    public TinyRpcServer(string[] args, CancellationToken ct)
-    {
-        pipe = new(".", args[0], PipeDirection.InOut, PipeOptions.Asynchronous);
-        reader = new(pipe);
-        writer = new(pipe);
-
-        _ = MessageHandler(ct);
-    }
 
     protected abstract Task MessageHandler(CancellationToken ct);
 
@@ -39,9 +27,8 @@ public abstract class TinyRpcServer : IDisposable
             }
 
             // unmanaged
-            reader.Dispose();
-            writer.Dispose();
-            pipe.Dispose();
+            stream?.Dispose();
+            tcpClient?.Dispose();
 
             disposedValue = true;
         }
