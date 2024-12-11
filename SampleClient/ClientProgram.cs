@@ -12,10 +12,10 @@ static class ClientProgram
 {
     static async Task Main()
     {
-        //if (await MyRpcClient.CreateLocalAsync("../../../../SampleServer/bin/Debug/net9.0/SampleServer.exe", CancellationToken.None) is not { } client)
-        //    return;
-        if (await MyRpcClient.CreateOverSshAsync(new("ssh://myblindy@172.30.204.70/home/myblindy/sampleserver/SampleServer.exe"), CancellationToken.None) is not { } client)
+        if (await MyRpcClient.CreateLocalAsync("../../../../SampleServer/bin/Debug/net9.0/SampleServer.exe", CancellationToken.None) is not { } client)
             return;
+        //if (await MyRpcClient.CreateOverSshAsync(new("ssh://myblindy@172.30.204.70/home/myblindy/sampleserver/SampleServer.exe"), CancellationToken.None) is not { } client)
+        //    return;
         //using var client = new MyRpcClient(@"../../../../x64/Debug/CppTest.exe", CancellationToken.None);
 
         using (client)
@@ -46,7 +46,10 @@ static class ClientProgram
                 Console.WriteLine($"[CLIENT] GetValueTupleArrayResultAsync: a={entry.a} b={entry.b} dt={entry.dt} d={entry.d}");
 
             while (true)
-                await Task.Delay(100).ConfigureAwait(false);
+            {
+                var largeArray = await client.GetLargeArrayAsync().ConfigureAwait(false);
+                await Task.Delay(5).ConfigureAwait(false);
+            }
         }
     }
 }

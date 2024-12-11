@@ -17,7 +17,6 @@ class ServerHandler : IServer
 
     public void FancyHi(string name, int age) =>
         Console.WriteLine($"Fancy hi, {age} years old {name}!");
-
     public E GetNewE(E input) => input is E.D ? E.A : input + 1;
     public double? GetNullableValue(float? val) => val + 50;
     public S2 GetStruct(int a, S1 s, double b) =>
@@ -34,6 +33,13 @@ class ServerHandler : IServer
         (uint.MaxValue, long.MaxValue, DateTime.MaxValue, double.MinValue),
         (uint.MinValue, long.MinValue, DateTime.MinValue, double.MaxValue)
     };
+
+    readonly byte[] largeArrayBuffer = new byte[1920 * 1080 * 4];
+    public byte[] GetLargeArray()
+    {
+        Random.Shared.NextBytes(largeArrayBuffer);
+        return largeArrayBuffer;
+    }
 
     public (int a, int b, short c, byte[] utf8) GetValueTupleResult(string s) =>
         Regex.Match(s, @"^(\d+) (\d+) (\d+) (.*)$") is not { Success: true } m ? default

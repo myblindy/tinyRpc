@@ -18,6 +18,7 @@ class ClientSourceGen : IIncrementalGenerator
                     ctx.AddSource($"tinyRpc.{clientType.Name}Client.g.cs", SourceText.From($$"""
                         #nullable enable
 
+                        using MessagePack;
                         using TinyRpc;
                         using TinyRpc.Support;
                         using System;
@@ -41,7 +42,7 @@ class ClientSourceGen : IIncrementalGenerator
                                 rpcClient.tcpListener.Start();
                                 var localPort = ((IPEndPoint)rpcClient.tcpListener.LocalEndpoint).Port;
                         
-                                if(!await createClientAction(rpcClient, localPort))
+                                if(!await createClientAction(rpcClient, localPort).ConfigureAwait(false))
                                     return null;
                         
                                 {{(clientType.Events.Length > 0 ? "_ = rpcClient.ReadLoopAsync(ct);" : null)}}
@@ -58,7 +59,7 @@ class ClientSourceGen : IIncrementalGenerator
                                         WorkingDirectory = Path.GetDirectoryName(serverExecutablePath) is not { } directoryName ? null
                                             : Path.GetFullPath(directoryName)
                                     });
-                                    await rpcClient.ConnectAsync();
+                                    await rpcClient.ConnectAsync().ConfigureAwait(false);
 
                                     return true;
                                 }, ct);
@@ -99,13 +100,13 @@ class ClientSourceGen : IIncrementalGenerator
                                             ? new PrivateKeyAuthenticationMethod(username, new[] { new PrivateKeyFile(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "id_ed25519")) })
                                             : new PasswordAuthenticationMethod(username, password)));
 
-                                    await sshClient.ConnectAsync(ct);
+                                    await sshClient.ConnectAsync(ct).ConfigureAwait(false);
 
                                     // run the server executable
                                     using var command = sshClient.CreateCommand($"cd \"{Path.GetDirectoryName(sshServerUri.LocalPath).Replace('\\', '/')}\" && \"./{Path.GetFileName(sshServerUri.LocalPath)}\" {localIpAddress} {localPort}");
                                     _ = command.ExecuteAsync(ct); // let it run
 
-                                    await rpcClient.ConnectAsync();
+                                    await rpcClient.ConnectAsync().ConfigureAwait(false);
                                     return true;
                                 }, ct);
 
@@ -126,7 +127,7 @@ class ClientSourceGen : IIncrementalGenerator
                                     while(true)
                                     {
                                         // read one byte to determine if it's an event or data
-                                        var type = await reader!.ReadByteAsync().ConfigureAwait(false);
+                                        var type = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
 
                                         if(type == 0)
                                         {
@@ -137,7 +138,7 @@ class ClientSourceGen : IIncrementalGenerator
                                         else if(type == 1)
                                         {
                                             // event
-                                            var eventIdx = await reader.ReadByteAsync().ConfigureAwait(false);
+                                            var eventIdx = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
                                             {{string.Join("\n", clientType.Events.Select((e, eIdx) => $$"""
                                                 if(eventIdx == {{eIdx}})        // {{e.Name}}
                                                 {
@@ -161,9 +162,9 @@ class ClientSourceGen : IIncrementalGenerator
                                 {
                                     using (await callMonitor.EnterAsync().ConfigureAwait(false))
                                     {
-                                        await writer!.WriteAsync((byte){{mIdx}}).ConfigureAwait(false); // {{m.Name}}
+                                        await MessagePackSerializer.SerializeAsync(stream!, (byte){{mIdx}}).ConfigureAwait(false); // {{m.Name}}
                                         {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
-                                        await writer.FlushAsync().ConfigureAwait(false);
+                                        await stream!.FlushAsync().ConfigureAwait(false);
 
                                         {{(m.ReturnType is null ? null : $$"""
                                             // return type

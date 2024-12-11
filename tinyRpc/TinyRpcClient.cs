@@ -1,5 +1,4 @@
 ﻿using Nito.AsyncEx;
-using Overby.Extensions.AsyncBinaryReaderWriter;
 using System.Net;
 using System.Net.Sockets;
 
@@ -9,9 +8,7 @@ public abstract class TinyRpcClient : IDisposable
 {
     protected readonly TcpListener tcpListener = new(IPAddress.Any, 0);
     protected TcpClient? tcpClient;
-    protected NetworkStream? tcpStream;
-    protected AsyncBinaryWriter? writer;
-    protected AsyncBinaryReader? reader;
+    protected NetworkStream? stream;
 
     protected readonly AsyncMonitor callMonitor = new();
     protected readonly AsyncMonitor readMonitor = new();
@@ -21,10 +18,7 @@ public abstract class TinyRpcClient : IDisposable
     protected async Task ConnectAsync()
     {
         tcpClient = await tcpListener.AcceptTcpClientAsync();
-        tcpStream = tcpClient.GetStream();
-
-        writer = new(tcpStream);
-        reader = new(tcpStream);
+        stream = tcpClient.GetStream();
     }
 
     #region IDisposable
@@ -39,9 +33,7 @@ public abstract class TinyRpcClient : IDisposable
                 // managed
             }
 
-            reader?.Dispose();
-            writer?.Dispose();
-            tcpStream?.Dispose();
+            stream?.Dispose();
             tcpClient?.Dispose();
             tcpListener.Stop();
 

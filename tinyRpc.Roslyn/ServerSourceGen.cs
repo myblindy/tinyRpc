@@ -18,6 +18,7 @@ class ServerSourceGen : IIncrementalGenerator
                     ctx.AddSource($"tinyRpc.{serverType.Name}Server.g.cs", SourceText.From($$"""
                         #nullable enable
 
+                        using MessagePack;
                         using TinyRpc;
                         using TinyRpc.Support;
                         using System;
@@ -40,9 +41,7 @@ class ServerSourceGen : IIncrementalGenerator
                             {
                                 var rpcServer = new {{serverType.Name}}(serverHandler);
                                 await rpcServer.tcpClient.ConnectAsync(args[0], int.Parse(args[1])); 
-                                rpcServer.tcpStream = rpcServer.tcpClient.GetStream();
-                                rpcServer.reader = new(rpcServer.tcpStream);
-                                rpcServer.writer = new(rpcServer.tcpStream);
+                                rpcServer.stream = rpcServer.tcpClient.GetStream();
 
                                 _ = rpcServer.MessageHandler(ct);
 
@@ -54,10 +53,10 @@ class ServerSourceGen : IIncrementalGenerator
                                 {
                                     using (await writeMonitor.EnterAsync().ConfigureAwait(false))
                                     {
-                                        await writer!.WriteAsync((byte)1).ConfigureAwait(false);            // event data
-                                        await writer.WriteAsync((byte){{eIdx}}).ConfigureAwait(false);      // {{e.Name}}
+                                        await MessagePackSerializer.SerializeAsync(stream!, (byte)1).ConfigureAwait(false);            // event data
+                                        await MessagePackSerializer.SerializeAsync(stream!, (byte){{eIdx}}).ConfigureAwait(false);      // {{e.Name}}
                                         {{string.Join("\n", e.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
-                                        await writer.FlushAsync().ConfigureAwait(false);
+                                        await stream!.FlushAsync().ConfigureAwait(false);
                                     }
                                 }
                                 """))}}
@@ -68,7 +67,7 @@ class ServerSourceGen : IIncrementalGenerator
                                 {
                                     while (!ct.IsCancellationRequested)
                                     {
-                                        var mIdx = await reader!.ReadByteAsync().ConfigureAwait(false);
+                                        var mIdx = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
 
                                         {{string.Join("\n", serverType.Methods.Select((m, mIdx) => $$"""
                                             if (mIdx == {{mIdx}})     // {{m.Name}}
@@ -81,9 +80,9 @@ class ServerSourceGen : IIncrementalGenerator
                                                     // return the result
                                                     {{(serverType.Events.Length > 0 ? "using (await writeMonitor.EnterAsync().ConfigureAwait(false))" : null)}}
                                                     {
-                                                        {{(serverType.Events.Length > 0 ? "await writer!.WriteAsync((byte)0).ConfigureAwait(false);     // return data" : null)}}
+                                                        {{(serverType.Events.Length > 0 ? "await MessagePackSerializer.SerializeAsync(stream!, (byte)0).ConfigureAwait(false);     // return data" : null)}}
                                                         {{m.ReturnType.GetBinaryWriterCall("result")}}
-                                                        await writer.FlushAsync().ConfigureAwait(false);
+                                                        await stream!.FlushAsync().ConfigureAwait(false);
                                                     }
                                                     """)}}
                                             }

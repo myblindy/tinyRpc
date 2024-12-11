@@ -21,6 +21,7 @@ internal interface IServer
     (uint a, long b, DateTime dt, double d)[] GetValueTupleArrayResult();
     E GetNewE(E input);
     double? GetNullableValue(float? val);
+    byte[] GetLargeArray();
 
     event Action<double, string> OnData;
 }

@@ -75,28 +75,13 @@ public static class Utils
 
     public static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
     {
-        _ when type.OriginalDefinition is INamedTypeSymbol nullableNamedTypeSymbol && nullableNamedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" && ((INamedTypeSymbol)type).TypeArguments.FirstOrDefault() is { } nullableTypeSymbol =>
-            $"await reader!.ReadBooleanAsync().ConfigureAwait(false) ? {GetBinaryReaderCall(nullableTypeSymbol)} : new {type.ToFullyQualifiedString()}()",
-        _ when type.IsTupleType => $"({string.Join(", ", ((INamedTypeSymbol)type).TupleElements.Select(p =>
-            p.Type.GetBinaryReaderCall()))})",
-        "global::System.Byte[]" => "await reader!.ReadBytesAsync(await reader!.ReadInt32Async().ConfigureAwait(false)).ConfigureAwait(false)",
-        _ when type is IArrayTypeSymbol arrayTypeSymbol =>
-            $"await reader!.ReadArray(async reader => {arrayTypeSymbol.ElementType.GetBinaryReaderCall()})",
-        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol =>
-            $"({type.ToFullyQualifiedString()})({enumNamedTypeSymbol.EnumUnderlyingType.GetBinaryReaderCall()})",
-        "global::System.String" => "await reader!.ReadStringAsync().ConfigureAwait(false)",
-        "global::System.Boolean" => "await reader!.ReadBooleanAsync().ConfigureAwait(false)",
-        "global::System.Byte" => "await reader!.ReadByteAsync().ConfigureAwait(false)",
-        "global::System.SByte" => "await reader!.ReadSByteAsync().ConfigureAwait(false)",
-        "global::System.Int16" => "await reader!.ReadInt16Async().ConfigureAwait(false)",
-        "global::System.UInt16" => "await reader!.ReadUInt16Async().ConfigureAwait(false)",
-        "global::System.Int32" => "await reader!.ReadInt32Async().ConfigureAwait(false)",
-        "global::System.UInt32" => "await reader!.ReadUInt32Async().ConfigureAwait(false)",
-        "global::System.Int64" => "await reader!.ReadInt64Async().ConfigureAwait(false)",
-        "global::System.UInt64" => "await reader!.ReadUInt64Async().ConfigureAwait(false)",
-        "global::System.Double" => "await reader!.ReadDoubleAsync().ConfigureAwait(false)",
-        "global::System.Single" => "await reader!.ReadSingleAsync().ConfigureAwait(false)",
-        "global::System.DateTime" => "new System.DateTime(await reader!.ReadInt64Async().ConfigureAwait(false))",
+        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } || type is IArrayTypeSymbol || type.IsTupleType 
+                || type.OriginalDefinition is INamedTypeSymbol nullableNamedTypeSymbol && nullableNamedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" =>
+            $"await SegmentedMessagePackDeserializer.DeserializeAsync<{type.ToFullyQualifiedString()}>(stream!).ConfigureAwait(false)",
+        "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte" or "global::System.Int16"
+                or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32" or "global::System.Int64" or "global::System.UInt64"
+                or "global::System.Double" or "global::System.Single" or "global::System.DateTime" =>
+            $"await SegmentedMessagePackDeserializer.DeserializeAsync<{type.ToFullyQualifiedString()}>(stream!).ConfigureAwait(false)",
         _ => $$"""
             new {{type.ToFullyQualifiedString()}} 
             { 
@@ -109,31 +94,14 @@ public static class Utils
 
     public static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
     {
-        _ when type.OriginalDefinition is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" => $$"""
-            await writer!.WriteAsync({{name}}.HasValue);
-            if({{name}}.HasValue)
-                await writer!.WriteAsync({{name}}.Value);
-            """,
-        _ when type.IsTupleType =>
-            string.Join("\n", ((INamedTypeSymbol)type).TupleElements.Select(p => p.Type.GetBinaryWriterCall($"{name}.{p.Name}"))),
-        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } enumNamedTypeSymbol =>
-            $"await writer!.WriteAsync(({enumNamedTypeSymbol.EnumUnderlyingType.ToFullyQualifiedString()}){name}).ConfigureAwait(false);",
-        "global::System.Byte[]" => $$"""
-            await writer!.WriteAsync({{name}}.Length).ConfigureAwait(false);
-            await writer!.WriteAsync({{name}}).ConfigureAwait(false);
-            """,
-        _ when type is IArrayTypeSymbol arrayTypeSymbol => $$"""
-            await writer!.WriteAsync({{name}}.Length).ConfigureAwait(false);
-            foreach(var _element{{SymbolEqualityComparer.Default.GetHashCode(type):X}} in {{name}})
-            {
-                {{arrayTypeSymbol.ElementType.GetBinaryWriterCall($"_element{SymbolEqualityComparer.Default.GetHashCode(type):X}")}}
-            }
-            """,
-        "global::System.DateTime" => $"await writer!.WriteAsync({name}.Ticks).ConfigureAwait(false);",
-        "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
+        _ when type.OriginalDefinition is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" =>
+            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
+        _ when type.IsTupleType || type is INamedTypeSymbol { EnumUnderlyingType: not null } || type is IArrayTypeSymbol =>
+            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
+        "global::System.DateTime" or "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
                 or "global::System.Int16" or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32"
                 or "global::System.Int64" or "global::System.UInt64" or "global::System.Double" or "global::System.Single" or "global::System.DateTime" =>
-            $"await writer!.WriteAsync({name}).ConfigureAwait(false);",
+            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
         _ => $$"""
             {{string.Join("\n", type.GetMembers()
                 .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
