@@ -36,9 +36,9 @@ internal interface IServer
 The pattern for creating a .NET server is as follows:
 
 1. Reference [`MB.TinyRpc`](https://www.nuget.org/packages/MB.TinyRpc/).
-1. Instantiate the interface to a concrete class that handles the functions as needed.
-2. Create a new partial class and decorate it with `[TinyRpcServerClass(typeof(ServerHandler))]`, where  `ServerHandler` is your concrete class name.
-3. Instantiate the server class above in code. This will create the listener on your thread pool and keep the `IsHealthy` property up to date.
+2. Create a new partial class and decorate it with `[TinyRpcServerClass(typeof(IServer))]`, where  `IServer` is the common interface above.
+3. Implement all the required partial types provided by the source generator.
+4. Instantiate the server class above in code. This will create the listener on your thread pool and keep the `IsHealthy` property up to date.
 
 You can find an example of this [here](https://github.com/myblindy/tinyRpc/blob/master/SampleServer/Program.cs).
 
@@ -47,8 +47,8 @@ You can find an example of this [here](https://github.com/myblindy/tinyRpc/blob/
 The pattern for creating a .NET client is as follows:
 
 1. Reference [`MB.TinyRpc`](https://www.nuget.org/packages/MB.TinyRpc/).
-1. Create a partial class and decorate it with `[TinyRpcClientClass(typeof(IServer))]`, where `IServer` is the common interface above.
-2. Instantiate the class and call the provided `async` functions on it, or fire its events.
+2. Create a partial class and decorate it with `[TinyRpcClientClass(typeof(IServer))]`, where `IServer` is the common interface above.
+3. Instantiate the class and call the provided `async` functions on it, or fire its events.
 
 You can find an example of this [here](https://github.com/myblindy/tinyRpc/blob/master/SampleClient/Program.cs).
 
