@@ -10,6 +10,8 @@ public abstract class TinyRpcServer : IDisposable
 
     protected readonly AsyncMonitor writeMonitor = new();
 
+    public event EventHandler<bool>? HealthyChanged;
+    protected void FireHealthyChanged(bool value) => HealthyChanged?.Invoke(this, value);
     public bool Healthy { get; protected set; } = true;
 
     protected abstract Task MessageHandler(CancellationToken ct);

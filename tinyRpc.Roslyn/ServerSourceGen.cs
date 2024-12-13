@@ -29,17 +29,9 @@ class ServerSourceGen : IIncrementalGenerator
 
                         partial class {{serverType.Name}} : TinyRpc.TinyRpcServer
                         {
-                            readonly {{serverType.ServerSymbol}} serverHandler;
-
-                            {{serverType.Name}}({{serverType.ServerSymbol}} serverHandler)
+                            public static async Task<{{serverType.Name}}?> CreateAsync(string[] args, CancellationToken ct)
                             {
-                                this.serverHandler = serverHandler;
-                            }
-
-                            public static async Task<{{serverType.Name}}?> CreateAsync(string[] args, 
-                                {{serverType.ServerSymbol}} serverHandler, CancellationToken ct)
-                            {
-                                var rpcServer = new {{serverType.Name}}(serverHandler);
+                                var rpcServer = new {{serverType.Name}}();
                                 await rpcServer.tcpClient.ConnectAsync(args[0], int.Parse(args[1])); 
                                 rpcServer.stream = rpcServer.tcpClient.GetStream();
 
@@ -73,7 +65,7 @@ class ServerSourceGen : IIncrementalGenerator
                                             if (mIdx == {{mIdx}})     // {{m.Name}}
                                             {
                                                 {{(m.ReturnType is null ? null : "var result = ")}}
-                                                serverHandler.{{m.Name}} ({{string.Join(", ", m.Parameters.Select(p =>
+                                                await {{m.Name}}({{string.Join(", ", m.Parameters.Select(p =>
                                                     p.Type.GetBinaryReaderCall()))}});
 
                                                 {{(m.ReturnType is null ? null : $$"""
@@ -89,17 +81,19 @@ class ServerSourceGen : IIncrementalGenerator
                                             """))}}
                                     }
                                 }
-                                catch(ArgumentException)
+                                catch(Exception ex) when (ex is 
+                                    ObjectDisposedException or MessagePackSerializationException or System.IO.IOException)
                                 {
                                     // pipe broken, end the server
                                     Healthy = false;
-                                }
-                                catch(System.IO.EndOfStreamException)
-                                {
-                                    // pipe broken, end the server
-                                    Healthy = false;
+                                    FireHealthyChanged(false);
                                 }
                             }
+
+                            {{string.Join("\n", serverType.Methods.Select(m => $$"""
+                                private partial ValueTask{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}}
+                                    {{m.Name}}({{string.Join(", ", m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}});
+                                """))}}
                         }
                         """, Encoding.UTF8));
         });

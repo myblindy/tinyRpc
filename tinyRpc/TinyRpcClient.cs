@@ -15,6 +15,10 @@ public abstract class TinyRpcClient : IDisposable
     protected readonly AsyncManualResetEvent returnReadReadyEvent = new();
     protected readonly AsyncAutoResetEvent returnReadCompletedEvent = new();
 
+    public event EventHandler<bool>? HealthyChanged;
+    protected void FireHealthyChanged(bool value) => HealthyChanged?.Invoke(this, value);
+    public bool Healthy { get; protected set; } = true;
+
     protected async Task ConnectAsync()
     {
         tcpClient = await tcpListener.AcceptTcpClientAsync();
