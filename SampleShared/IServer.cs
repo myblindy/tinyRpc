@@ -23,5 +23,8 @@ internal interface IServer
     double? GetNullableValue(float? val);
     byte[] GetLargeArray();
 
+    string GetFastString();
+    string GetSlowString();
+
     event Action<double, string> OnData;
 }

@@ -26,9 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MB.TinyRpc.Roslyn" Version="2.1.0" />
-    <PackageReference Include="MessagePack" Version="3.0.308" />
+    <!--<PackageReference Include="MB.TinyRpc.Roslyn" Version="2.1.0" />-->
+    <PackageReference Include="MessagePack" Version="3.1.0" />
     <PackageReference Include="Nito.AsyncEx.Coordination" Version="5.1.2" />
     <PackageReference Include="SSH.NET" Version="2024.2.0" />
+    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
   </ItemGroup>
 </Project>

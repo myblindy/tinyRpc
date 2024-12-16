@@ -11,9 +11,6 @@ public abstract class TinyRpcClient : IDisposable
     protected NetworkStream? stream;
 
     protected readonly AsyncMonitor callMonitor = new();
-    protected readonly AsyncMonitor readMonitor = new();
-    protected readonly AsyncManualResetEvent returnReadReadyEvent = new();
-    protected readonly AsyncAutoResetEvent returnReadCompletedEvent = new();
 
     public event EventHandler<bool>? HealthyChanged;
     protected void FireHealthyChanged(bool value) => HealthyChanged?.Invoke(this, value);

@@ -29,6 +29,14 @@ static class ClientProgram
                 //    client.HiAsync(),
                 //    client.FancyHiAsync("Moopsies", 25)).ConfigureAwait(false);
 
+                async ValueTask fastStringHelperAsync() =>
+                    Console.WriteLine($"[CLIENT] FastString: {await client.GetFastStringAsync().ConfigureAwait(false)}");
+                _ = fastStringHelperAsync();
+
+                async ValueTask slowStringHelperAsync() =>
+                    Console.WriteLine($"[CLIENT] SlowString: {await client.GetSlowStringAsync().ConfigureAwait(false)}");
+                _ = slowStringHelperAsync();
+
                 Console.WriteLine($"[CLIENT] 5 + 2 = {await client.AddAsync(5, 2).ConfigureAwait(false)}");
                 Console.WriteLine($"[CLIENT] {Encoding.UTF8.GetString(
                     await client.BufferCallAsync(Encoding.UTF8.GetBytes("arf arf"), 10).ConfigureAwait(false))}");

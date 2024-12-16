@@ -22,6 +22,7 @@ class ClientSourceGen : IIncrementalGenerator
                         using TinyRpc;
                         using TinyRpc.Support;
                         using System;
+                        using System.Collections.Concurrent;
                         using System.Diagnostics;
                         using System.IO;
                         using System.Linq;
@@ -112,54 +113,60 @@ class ClientSourceGen : IIncrementalGenerator
 
                             static bool IsInSameSubnet(IPAddress targetIP, IPAddress address, IPAddress mask)
                             {
-                                byte[] targetIPBytes = targetIP.GetAddressBytes();
-                                byte[] addressBytes = address.GetAddressBytes();
-                                byte[] maskBytes = mask.GetAddressBytes();
+                                var targetIPBytes = targetIP.GetAddressBytes();
+                                var addressBytes = address.GetAddressBytes();
+                                var maskBytes = mask.GetAddressBytes();
                                 for (int i = 0; i < targetIPBytes.Length; i++)
                                     if ((targetIPBytes[i] & maskBytes[i]) != (addressBytes[i] & maskBytes[i]))
                                         return false;
                                 return true;
                             }
 
-                            {{(clientType.Events.Length > 0 ? $$"""
-                                async Task ReadLoopAsync(CancellationToken ct)
-                                {
-                                    try
-                                    {
-                                        while(true)
-                                        {
-                                            // read one byte to determine if it's an event or data
-                                            var type = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
+                            readonly ConcurrentDictionary<int, Func<ValueTask>> requestsInFlight = [];
+                            int nextRequestId = 0;
 
-                                            if(type == 0)
+                            async Task ReadLoopAsync(CancellationToken ct)
+                            {
+                                try
+                                {
+                                    while(true)
+                                    {
+                                        // read one byte to determine if it's an event or data
+                                        var type = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
+
+                                        if(type == 0)
+                                        {
+                                            // data
+                                            var requestId = await SegmentedMessagePackDeserializer.DeserializeAsync<int>(stream!).ConfigureAwait(false);
+                                            if(requestsInFlight.TryGetValue(requestId, out var action))
                                             {
-                                                // data
-                                                returnReadReadyEvent.Set();
-                                                await returnReadCompletedEvent.WaitAsync().ConfigureAwait(false);
-                                            }
-                                            else if(type == 1)
-                                            {
-                                                // event
-                                                var eventIdx = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
-                                                {{string.Join("\n", clientType.Events.Select((e, eIdx) => $$"""
-                                                    if(eventIdx == {{eIdx}})        // {{e.Name}}
-                                                    {
-                                                        {{string.Join("\n", e.Parameters.Select((p, pIdx) => $"var p{pIdx} = {p.Type.GetBinaryReaderCall()};"))}}
-                                                        {{e.Name}}?.Invoke({{string.Join(", ", e.Parameters.Select((_, pIdx) => $"p{pIdx}"))}});
-                                                    }
-                                                    """))}}
+                                                await action().ConfigureAwait(false);
+                                                requestsInFlight.TryRemove(requestId, out _);
                                             }
                                         }
-                                    }
-                                    catch(Exception ex) when (ex is 
-                                        ObjectDisposedException or MessagePackSerializationException or System.IO.IOException)
-                                    {
-                                        // pipe broken, end the server
-                                        Healthy = false;
-                                        FireHealthyChanged(false);
+                                        else if(type == 1)
+                                        {
+                                            // event
+                                            var eventIdx = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
+                                            {{string.Join("\n", clientType.Events.Select((e, eIdx) => $$"""
+                                                if(eventIdx == {{eIdx}})        
+                                                {
+                                                    // {{e.Name}}
+                                                    {{string.Join("\n", e.Parameters.Select((p, pIdx) => $"var p{pIdx} = {p.Type.GetBinaryReaderCall()};"))}}
+                                                    {{e.Name}}?.Invoke({{string.Join(", ", e.Parameters.Select((_, pIdx) => $"p{pIdx}"))}});
+                                                }
+                                                """))}}
+                                        }
                                     }
                                 }
-                                """ : null)}}
+                                catch(Exception ex) when (ex is 
+                                    ObjectDisposedException or MessagePackSerializationException or System.IO.IOException)
+                                {
+                                    // pipe broken, end the server
+                                    Healthy = false;
+                                    FireHealthyChanged(false);
+                                }
+                            }
 
                             {{string.Join("\n", clientType.Events.Select(e => $$"""
                                 public delegate void {{e.Name}}Delegate({{string.Join(", ", e.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}});
@@ -167,27 +174,56 @@ class ClientSourceGen : IIncrementalGenerator
                                 """))}}
 
                             {{string.Join("\n", clientType.Methods.Select((m, mIdx) => $$"""
-                                public async Task{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}} {{m.Name}}Async({{string.Join(", ",
+                                public async ValueTask{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}} {{m.Name}}Async({{string.Join(", ",
                                     m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}}) 
                                 {
                                     try
                                     {
                                         using (await callMonitor.EnterAsync().ConfigureAwait(false))
                                         {
-                                            await MessagePackSerializer.SerializeAsync(stream!, (byte){{mIdx}}).ConfigureAwait(false); // {{m.Name}}
+                                            // {{m.Name}}
+                                            await MessagePackSerializer.SerializeAsync(stream!, (byte){{mIdx}}).ConfigureAwait(false); 
+
+                                            // request id
+                                            var requestId = Interlocked.Increment(ref nextRequestId);
+                                            await MessagePackSerializer.SerializeAsync(stream!, requestId).ConfigureAwait(false);
+
+                                            // parameters
                                             {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
+
+                                            // done
                                             await stream!.FlushAsync().ConfigureAwait(false);
 
-                                            {{(m.ReturnType is null ? null : $$"""
-                                                // return type
-                                                {{(clientType.Events.Length > 0 ? "await returnReadReadyEvent.WaitAsync().ConfigureAwait(false);" : null)}}
-                                                var __result = {{m.ReturnType.GetBinaryReaderCall()}};
-                                                {{(clientType.Events.Length > 0 ? """
-                                                    returnReadReadyEvent.Reset();
-                                                    returnReadCompletedEvent.Set();
-                                                    """ : null)}}
-                                                return __result;
-                                                """)}}
+                                #if (NET5_0_OR_GREATER)
+                                            var tcs = new TaskCompletionSource{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}}();
+                                #else
+                                            var tcs = new TaskCompletionSource<{{(m.ReturnType is null ? "bool" : m.ReturnType.ToFullyQualifiedString())}}>();
+                                #endif
+
+                                            {{(m.ReturnType is null
+                                                ? $$"""
+                                                    requestsInFlight[requestId] = () =>
+                                                    {
+                                                    #if (NET5_0_OR_GREATER)
+                                                        tcs.SetResult();
+                                                    #else
+                                                        tcs.SetResult(true);
+                                                    #endif
+
+                                                        return ValueTask.CompletedTask;
+                                                    };
+
+                                                    await tcs.Task.ConfigureAwait(false);
+                                                    """
+                                                : $$"""
+                                                    requestsInFlight[requestId] = async () =>
+                                                    {
+                                                        // return type
+                                                        tcs.SetResult({{m.ReturnType.GetBinaryReaderCall()}});
+                                                    };
+
+                                                    return await tcs.Task.ConfigureAwait(false);
+                                                    """)}}
                                         }
                                     }
                                     catch(Exception ex) when (ex is 

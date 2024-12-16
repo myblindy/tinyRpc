@@ -10,7 +10,8 @@
   <Import Project="..\SampleShared\SampleShared.projitems" Label="Shared" />
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+    <PackageReference Include="MessagePack" Version="3.1.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="9.0.0" />
     <PackageReference Include="SSH.NET" Version="2024.2.0" />
   </ItemGroup>
 

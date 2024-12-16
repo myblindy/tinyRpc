@@ -32,7 +32,7 @@ class ServerSourceGen : IIncrementalGenerator
                             public static async Task<{{serverType.Name}}?> CreateAsync(string[] args, CancellationToken ct)
                             {
                                 var rpcServer = new {{serverType.Name}}();
-                                await rpcServer.tcpClient.ConnectAsync(args[0], int.Parse(args[1])); 
+                                await rpcServer.tcpClient.ConnectAsync(args[0], int.Parse(args[1])).ConfigureAwait(false); 
                                 rpcServer.stream = rpcServer.tcpClient.GetStream();
 
                                 _ = rpcServer.MessageHandler(ct);
@@ -60,23 +60,30 @@ class ServerSourceGen : IIncrementalGenerator
                                     while (!ct.IsCancellationRequested)
                                     {
                                         var mIdx = await SegmentedMessagePackDeserializer.DeserializeAsync<byte>(stream!).ConfigureAwait(false);
+                                        var responseId = await SegmentedMessagePackDeserializer.DeserializeAsync<int>(stream!).ConfigureAwait(false);
 
                                         {{string.Join("\n", serverType.Methods.Select((m, mIdx) => $$"""
                                             if (mIdx == {{mIdx}})     // {{m.Name}}
                                             {
-                                                {{(m.ReturnType is null ? null : "var result = ")}}
-                                                await {{m.Name}}({{string.Join(", ", m.Parameters.Select(p =>
-                                                    p.Type.GetBinaryReaderCall()))}});
+                                                {{string.Join("\n", m.Parameters.Select((p, pIdx) =>
+                                                    $"var p{pIdx} = {p.Type.GetBinaryReaderCall()};"))}}
 
-                                                {{(m.ReturnType is null ? null : $$"""
-                                                    // return the result
-                                                    {{(serverType.Events.Length > 0 ? "using (await writeMonitor.EnterAsync().ConfigureAwait(false))" : null)}}
+                                                async ValueTask asyncHelper()
+                                                {
+                                                    {{(m.ReturnType is null ? null : "var result = ")}}
+                                                    await {{m.Name}}Async({{string.Join(", ", Enumerable.Range(0, m.Parameters.Length).Select(pIdx => $"p{pIdx}"))}})
+                                                        .ConfigureAwait(false);
+
+                                                    // return the result, if any
+                                                    using (await writeMonitor.EnterAsync().ConfigureAwait(false))
                                                     {
-                                                        {{(serverType.Events.Length > 0 ? "await MessagePackSerializer.SerializeAsync(stream!, (byte)0).ConfigureAwait(false);     // return data" : null)}}
-                                                        {{m.ReturnType.GetBinaryWriterCall("result")}}
+                                                        await MessagePackSerializer.SerializeAsync(stream!, (byte)0).ConfigureAwait(false);     // return data
+                                                        await MessagePackSerializer.SerializeAsync(stream!, responseId).ConfigureAwait(false);  // for response id
+                                                        {{m.ReturnType?.GetBinaryWriterCall("result")}}
                                                         await stream!.FlushAsync().ConfigureAwait(false);
                                                     }
-                                                    """)}}
+                                                }
+                                                _ = asyncHelper();
                                             }
                                             """))}}
                                     }
@@ -92,7 +99,7 @@ class ServerSourceGen : IIncrementalGenerator
 
                             {{string.Join("\n", serverType.Methods.Select(m => $$"""
                                 private partial ValueTask{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}}
-                                    {{m.Name}}({{string.Join(", ", m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}});
+                                    {{m.Name}}Async({{string.Join(", ", m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}});
                                 """))}}
                         }
                         """, Encoding.UTF8));
