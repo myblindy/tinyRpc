@@ -25,6 +25,7 @@ internal interface IServer
 
     string GetFastString();
     string GetSlowString();
+    S11[] GetStructs(int a);
 
     event Action<double, string> OnData;
 }

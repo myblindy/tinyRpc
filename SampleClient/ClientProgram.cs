@@ -1,5 +1,6 @@
 ﻿using SampleShared;
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +46,9 @@ static class ClientProgram
 
                 var s2 = await client.GetStructAsync(12, new() { a = 15, b = "b", S11 = new() { a = 49859485 } }, 3.1415).ConfigureAwait(false);
                 Console.WriteLine($"[CLIENT] GetStructAsync: c={s2.c} d={s2.d} S22.a={s2.S22.a}");
+
+                var s11s = await client.GetStructsAsync(5).ConfigureAwait(false);
+                Console.WriteLine($"[CLIENT] GetStructsAsync: S11.a=[{string.Join(", ", s11s.Select(w => w.a))}]");
 
                 var (a, b, c, utf8) = await client.GetValueTupleResultAsync("120 150 1000 plain ol string").ConfigureAwait(false);
                 Console.WriteLine($"[CLIENT] GetValueTupleResultAsync: a={a} b={b} c={c} utf8={Encoding.UTF8.GetString(utf8)}");

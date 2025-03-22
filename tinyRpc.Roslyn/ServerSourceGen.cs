@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using System.Text;
+using tinyRpc.Roslyn;
 
 namespace TinyRpc.Roslyn;
 
@@ -13,6 +14,8 @@ class ServerSourceGen : IIncrementalGenerator
 
         context.RegisterSourceOutput(classDeclarations, static (ctx, serverTypes) =>
         {
+            TypeCache typeCache = new();
+
             foreach (var serverType in serverTypes)
                 if (serverType is not null)
                     ctx.AddSource($"tinyRpc.{serverType.Name}Server.g.cs", SourceText.From($$"""
@@ -45,9 +48,9 @@ class ServerSourceGen : IIncrementalGenerator
                                 {
                                     using (await writeMonitor.EnterAsync().ConfigureAwait(false))
                                     {
-                                        await MessagePackSerializer.SerializeAsync(stream!, (byte)1).ConfigureAwait(false);            // event data
-                                        await MessagePackSerializer.SerializeAsync(stream!, (byte){{eIdx}}).ConfigureAwait(false);      // {{e.Name}}
-                                        {{string.Join("\n", e.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
+                                        await MessagePackSerializer.SerializeAsync(stream!, 1).ConfigureAwait(false);            // event data
+                                        await MessagePackSerializer.SerializeAsync(stream!, {{eIdx}}).ConfigureAwait(false);      // {{e.Name}}
+                                        {{string.Join("\n", e.Parameters.Select(p => typeCache.GetBinaryWriterCall(p.Type, p.Name)))}}
                                         await stream!.FlushAsync().ConfigureAwait(false);
                                     }
                                 }
@@ -66,7 +69,7 @@ class ServerSourceGen : IIncrementalGenerator
                                             if (mIdx == {{mIdx}})     // {{m.Name}}
                                             {
                                                 {{string.Join("\n", m.Parameters.Select((p, pIdx) =>
-                                                    $"var p{pIdx} = {p.Type.GetBinaryReaderCall()};"))}}
+                                                    $"var p{pIdx} = {typeCache.GetBinaryReaderCall(p.Type)};"))}}
 
                                                 async ValueTask asyncHelper()
                                                 {
@@ -77,9 +80,9 @@ class ServerSourceGen : IIncrementalGenerator
                                                     // return the result, if any
                                                     using (await writeMonitor.EnterAsync().ConfigureAwait(false))
                                                     {
-                                                        await MessagePackSerializer.SerializeAsync(stream!, (byte)0).ConfigureAwait(false);     // return data
+                                                        await MessagePackSerializer.SerializeAsync(stream!, 0).ConfigureAwait(false);     // return data
                                                         await MessagePackSerializer.SerializeAsync(stream!, responseId).ConfigureAwait(false);  // for response id
-                                                        {{m.ReturnType?.GetBinaryWriterCall("result")}}
+                                                        {{typeCache.GetBinaryWriterCall(m.ReturnType, "result")}}
                                                         await stream!.FlushAsync().ConfigureAwait(false);
                                                     }
                                                 }
@@ -101,6 +104,8 @@ class ServerSourceGen : IIncrementalGenerator
                                 private partial ValueTask{{(m.ReturnType is null ? null : $"<{m.ReturnType.ToFullyQualifiedString()}>")}}
                                     {{m.Name}}Async({{string.Join(", ", m.Parameters.Select(p => $"{p.Type.ToFullyQualifiedString()} {p.Name}"))}});
                                 """))}}
+
+                            {{typeCache.GetSupportCode()}}
                         }
                         """, Encoding.UTF8));
         });

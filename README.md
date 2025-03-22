@@ -1,6 +1,6 @@
 # MB.TinyRpc
 
-`TinyRpc` is a small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes. 
+`TinyRpc` is a small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over zero-configuration sockets. 
 
 It sends as little data as necessary, without run-time checks. If the common interface doesn't have events, for example, the machinery to support them isn't generated. Similarly, `void` returns or parameters don't send anything over the pipe. 
 

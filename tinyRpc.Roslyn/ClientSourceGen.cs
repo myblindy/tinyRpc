@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using System.Text;
+using tinyRpc.Roslyn;
 
 namespace TinyRpc.Roslyn;
 
@@ -13,6 +14,8 @@ class ClientSourceGen : IIncrementalGenerator
 
         context.RegisterSourceOutput(classDeclarations, static (ctx, clientTypes) =>
         {
+            TypeCache typeCache = new();
+
             foreach (var clientType in clientTypes)
                 if (clientType is not null)
                     ctx.AddSource($"tinyRpc.{clientType.Name}Client.g.cs", SourceText.From($$"""
@@ -152,7 +155,7 @@ class ClientSourceGen : IIncrementalGenerator
                                                 if(eventIdx == {{eIdx}})        
                                                 {
                                                     // {{e.Name}}
-                                                    {{string.Join("\n", e.Parameters.Select((p, pIdx) => $"var p{pIdx} = {p.Type.GetBinaryReaderCall()};"))}}
+                                                    {{string.Join("\n", e.Parameters.Select((p, pIdx) => $"var p{pIdx} = {typeCache.GetBinaryReaderCall(p.Type)};"))}}
                                                     {{e.Name}}?.Invoke({{string.Join(", ", e.Parameters.Select((_, pIdx) => $"p{pIdx}"))}});
                                                 }
                                                 """))}}
@@ -182,14 +185,14 @@ class ClientSourceGen : IIncrementalGenerator
                                         using (await callMonitor.EnterAsync().ConfigureAwait(false))
                                         {
                                             // {{m.Name}}
-                                            await MessagePackSerializer.SerializeAsync(stream!, (byte){{mIdx}}).ConfigureAwait(false); 
+                                            await MessagePackSerializer.SerializeAsync(stream!, {{mIdx}}).ConfigureAwait(false); 
 
                                             // request id
                                             var requestId = Interlocked.Increment(ref nextRequestId);
                                             await MessagePackSerializer.SerializeAsync(stream!, requestId).ConfigureAwait(false);
 
                                             // parameters
-                                            {{string.Join("\n", m.Parameters.Select(p => p.Type.GetBinaryWriterCall(p.Name)))}}
+                                            {{string.Join("\n", m.Parameters.Select(p => typeCache.GetBinaryWriterCall(p.Type, p.Name)))}}
 
                                             // done
                                             await stream!.FlushAsync().ConfigureAwait(false);
@@ -219,7 +222,7 @@ class ClientSourceGen : IIncrementalGenerator
                                                     requestsInFlight[requestId] = async () =>
                                                     {
                                                         // return type
-                                                        tcs.SetResult({{m.ReturnType.GetBinaryReaderCall()}});
+                                                        tcs.SetResult({{typeCache.GetBinaryReaderCall(m.ReturnType)}});
                                                     };
 
                                                     return await tcs.Task.ConfigureAwait(false);
@@ -237,6 +240,8 @@ class ClientSourceGen : IIncrementalGenerator
                                     }
                                 }
                                 """))}}
+
+                            {{typeCache.GetSupportCode()}}
                         }
                         """, Encoding.UTF8));
         });

@@ -72,40 +72,4 @@ public static class Utils
         typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces);
 
     public static string ToFullyQualifiedString(this ITypeSymbol type) => type.ToDisplayString(fullyQualifiedSymbolDisplayFormat);
-
-    public static string GetBinaryReaderCall(this ITypeSymbol type) => type.ToFullyQualifiedString() switch
-    {
-        _ when type is INamedTypeSymbol { EnumUnderlyingType: not null } || type is IArrayTypeSymbol || type.IsTupleType 
-                || type.OriginalDefinition is INamedTypeSymbol nullableNamedTypeSymbol && nullableNamedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" =>
-            $"await SegmentedMessagePackDeserializer.DeserializeAsync<{type.ToFullyQualifiedString()}>(stream!).ConfigureAwait(false)",
-        "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte" or "global::System.Int16"
-                or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32" or "global::System.Int64" or "global::System.UInt64"
-                or "global::System.Double" or "global::System.Single" or "global::System.DateTime" =>
-            $"await SegmentedMessagePackDeserializer.DeserializeAsync<{type.ToFullyQualifiedString()}>(stream!).ConfigureAwait(false)",
-        _ => $$"""
-            new {{type.ToFullyQualifiedString()}} 
-            { 
-                {{string.Join(", ", type.GetMembers()
-                    .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
-                    .Select(m => $"{m.Name} = {((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type).GetBinaryReaderCall()}"))}}
-            } 
-            """
-    };
-
-    public static string GetBinaryWriterCall(this ITypeSymbol type, string name) => type.ToFullyQualifiedString() switch
-    {
-        _ when type.OriginalDefinition is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.ToFullyQualifiedString() is "global::System.Nullable" =>
-            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
-        _ when type.IsTupleType || type is INamedTypeSymbol { EnumUnderlyingType: not null } || type is IArrayTypeSymbol =>
-            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
-        "global::System.DateTime" or "global::System.String" or "global::System.Boolean" or "global::System.Byte" or "global::System.SByte"
-                or "global::System.Int16" or "global::System.UInt16" or "global::System.Int32" or "global::System.UInt32"
-                or "global::System.Int64" or "global::System.UInt64" or "global::System.Double" or "global::System.Single" or "global::System.DateTime" =>
-            $"await MessagePackSerializer.SerializeAsync(stream!, {name}).ConfigureAwait(false);",
-        _ => $$"""
-            {{string.Join("\n", type.GetMembers()
-                .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
-                .Select(m => ((m as IFieldSymbol)?.Type ?? ((IPropertySymbol)m).Type).GetBinaryWriterCall($"{name}.{m.Name}")))}}
-            """
-    };
 }

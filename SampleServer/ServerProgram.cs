@@ -1,6 +1,7 @@
 ﻿using SampleShared;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -27,6 +28,11 @@ partial class MyRpcServer
             d = 514546,
             S22 = new() { a = 123 }
         };
+
+    private partial async ValueTask<S11[]> GetStructsAsync(int a) => Enumerable.Range(0, a).Select(i => new S11
+    {
+        a = i * 10
+    }).ToArray();
 
     private partial async ValueTask<(uint a, long b, DateTime dt, double d)[]> GetValueTupleArrayResultAsync() =>
     [
