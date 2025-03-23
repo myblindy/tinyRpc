@@ -25,10 +25,10 @@ static class ClientProgram
             {
                 client.OnData += (d, s) => Console.WriteLine($"[SERVER] OnData: {d} {s}");
 
-                //await Task.WhenAll(
-                //    client.HiAsync(),
-                //    client.HiAsync(),
-                //    client.FancyHiAsync("Moopsies", 25)).ConfigureAwait(false);
+                await Task.WhenAll(
+                    client.HiAsync().AsTask(),
+                    client.HiAsync().AsTask(),
+                    client.FancyHiAsync("Moopsies", 25).AsTask()).ConfigureAwait(false);
 
                 async ValueTask fastStringHelperAsync() =>
                     Console.WriteLine($"[CLIENT] FastString: {await client.GetFastStringAsync().ConfigureAwait(false)}");
@@ -37,6 +37,10 @@ static class ClientProgram
                 async ValueTask slowStringHelperAsync() =>
                     Console.WriteLine($"[CLIENT] SlowString: {await client.GetSlowStringAsync().ConfigureAwait(false)}");
                 _ = slowStringHelperAsync();
+
+                Console.WriteLine($"[CLIENT] ParamTest: {await client.ParamTestAsync(15, E.D, new() { a = 11 },
+                    (15, 21.4, new() { a = 12 }), [new() { a = 11, b = "moop", S11 = { a = 15 } }, null, new() { a = 112, b = "moop2", S11 = { a = 152 } }])}");
+                Console.WriteLine($"[CLIENT] ParamTest(null): {await client.ParamTestAsync(null, null, null, null, [null, null, null])}");
 
                 Console.WriteLine($"[CLIENT] 5 + 2 = {await client.AddAsync(5, 2).ConfigureAwait(false)}");
                 Console.WriteLine($"[CLIENT] {Encoding.UTF8.GetString(

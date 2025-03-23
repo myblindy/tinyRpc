@@ -13,6 +13,10 @@ using TinyRpc;
 [SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "test code")]
 partial class MyRpcServer
 {
+    private partial async ValueTask<string> ParamTestAsync(int? a, E? e, S11? s11, (int? i, double? j, S11? s11)? tuple, S1?[] s1s) =>
+        $"a={a}, e={e}, s11={s11?.a}, tuple.i={tuple?.i}, tuple.j={tuple?.j}, tuple.s11={tuple?.s11?.a}, " +
+        $"s1s=[{string.Join(", ", s1s.Select(s1 => $"a={s1?.a}, b={s1?.b}, s11.a={s1?.S11.a}"))}]";
+
     private partial async ValueTask<int> AddAsync(int x, int y) => x + y;
     private partial async ValueTask<byte[]> BufferCallAsync(byte[] baseUtf8String, int n) =>
         Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(baseUtf8String) + " x" + n);

@@ -69,6 +69,7 @@ class TypeCache
 
             sb.AppendLine($$"""
                 /// <summary> Writes a <see cref="{{type.ToFullyQualifiedString()}}"/> to the stream. </summary>
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 static async ValueTask Write{{guid:N}}(System.IO.Stream stream, {{type.ToFullyQualifiedString()}} value)
                 {
                     {{(type.ToFullyQualifiedString() switch
@@ -92,6 +93,16 @@ class TypeCache
                     foreach (var item in value)
                         await Write{{GetTypeGuid(arrayTypeSymbol.ElementType, queue):N}}(stream, item).ConfigureAwait(false);
                     """,
+                // nullable
+                _ when IsNullable(type, out var nullableArgumentType) => $$"""
+                    if (value.HasValue)
+                    {
+                        await MessagePackSerializer.SerializeAsync(stream!, true).ConfigureAwait(false);
+                        await Write{{GetTypeGuid(nullableArgumentType!, queue):N}}(stream!, value.Value).ConfigureAwait(false);
+                    }
+                    else
+                        await MessagePackSerializer.SerializeAsync(stream!, false).ConfigureAwait(false);
+                    """,
                 _ => $$"""
                     {{string.Join("\n", type.GetMembers()
                         .Where(m => m.Kind is SymbolKind.Field or SymbolKind.Property && m.DeclaredAccessibility is Accessibility.Public)
@@ -101,6 +112,7 @@ class TypeCache
                 }
 
                 /// <summary> Reads a <see cref="{{type.ToFullyQualifiedString()}}"/> from the stream. </summary>
+                [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
                 static async ValueTask<{{type.ToFullyQualifiedString()}}> Read{{guid:N}}(System.IO.Stream stream)
                 {
                     {{(type.ToFullyQualifiedString() switch
@@ -126,6 +138,13 @@ class TypeCache
                     for (var i = 0; i < arr.Length; i++)
                         arr[i] = await Read{{GetTypeGuid(arrayTypeSymbol.ElementType, queue):N}}(stream!).ConfigureAwait(false);
                     return arr;
+                    """,
+                // nullable
+                _ when IsNullable(type, out var nullableArgumentType) => $$"""
+                    if (await SegmentedMessagePackDeserializer.DeserializeAsync<bool>(stream!).ConfigureAwait(false))
+                        return await Read{{GetTypeGuid(nullableArgumentType!, queue):N}}(stream!).ConfigureAwait(false);
+                    else
+                        return null;
                     """,
                 _ => $$"""
                     return new {{type.ToFullyQualifiedString()}} 

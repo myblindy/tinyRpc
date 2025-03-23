@@ -21,7 +21,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>A small, fast 1:1 RPC client-server framework that uses source generation to communicate using binary data over pipes.</Description>
 
-    <VersionPrefix>2.3.0</VersionPrefix>
+    <VersionPrefix>2.4.0</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

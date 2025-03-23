@@ -12,6 +12,8 @@ internal struct S2 { public string c; public ulong d; public S22 S22; }
 
 internal interface IServer
 {
+    string ParamTest(int? a, E? e, S11? s11, (int? i, double? j, S11? s11)? tuple, S1?[] s1s);
+
     S2 GetStruct(int a, S1 s, double b);
     void Hi();
     void FancyHi(string name, int age);
